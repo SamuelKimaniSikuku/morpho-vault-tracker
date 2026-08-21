@@ -8,6 +8,13 @@ import {
   peakInWindow,
   isDepressed,
 } from "./watchlist";
+import { extractVaultCandidates } from "./ocr";
+import {
+  notificationsSupported,
+  notificationPermission,
+  requestNotificationPermission,
+  fireNotification,
+} from "./notify";
 import "./App.css";
 
 const POLL_MS = 60_000;
@@ -29,6 +36,14 @@ function App() {
   const [watchlist, setWatchlist] = useState<WatchedVault[]>(() => loadWatchlist());
   const [rows, setRows] = useState<Record<string, LiveRow>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevWarnRef = useRef<Record<string, boolean>>({});
+
+  const [notifPermission, setNotifPermission] = useState(notificationPermission());
+
+  const [ocrBusy, setOcrBusy] = useState(false);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [ocrMatches, setOcrMatches] = useState<VaultSummary[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -77,6 +92,7 @@ function App() {
       delete copy[key];
       return copy;
     });
+    delete prevWarnRef.current[key];
   }
 
   async function checkOne(v: WatchedVault) {
@@ -95,6 +111,15 @@ function App() {
     appendHistory(key, { ts: now, apy: live.netApyPct, tvl: live.tvlUsd });
     const { peakApy, peakTvl } = peakInWindow(key, now);
     const warn = isDepressed(live.netApyPct, live.tvlUsd, peakApy, peakTvl);
+
+    if (warn && !prevWarnRef.current[key]) {
+      fireNotification(
+        `${v.name} is down`,
+        `Net APY ${live.netApyPct.toFixed(2)}% (peak ${peakApy?.toFixed(2)}%), TVL $${live.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+      );
+    }
+    prevWarnRef.current[key] = warn;
+
     setRows((prev) => ({
       ...prev,
       [key]: { vault: v, apy: live.netApyPct, tvl: live.tvlUsd, peakApy, lastChecked: now, warn, error: false },
@@ -110,6 +135,47 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchlist]);
 
+  async function enableNotifications() {
+    const perm = await requestNotificationPermission();
+    setNotifPermission(perm);
+  }
+
+  async function handleScreenshot(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setOcrBusy(true);
+    setOcrError(null);
+    setOcrMatches([]);
+    try {
+      const candidates = await extractVaultCandidates(file);
+      if (candidates.length === 0) {
+        setOcrError("Couldn't read any vault-like text from that image. Try a clearer screenshot.");
+        return;
+      }
+      const resultLists = await Promise.all(candidates.map((c) => searchVaults(c).catch(() => [])));
+      const seen = new Set<string>();
+      const merged: VaultSummary[] = [];
+      for (const list of resultLists) {
+        for (const v of list.slice(0, 3)) {
+          const key = vaultKey(v);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          merged.push(v);
+        }
+      }
+      if (merged.length === 0) {
+        setOcrError("Read some text but couldn't match it to a known Morpho vault. Try a clearer screenshot.");
+      } else {
+        setOcrMatches(merged);
+      }
+    } catch {
+      setOcrError("OCR failed on that image — try a different screenshot.");
+    } finally {
+      setOcrBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   return (
     <div className="page">
       <header>
@@ -119,6 +185,21 @@ function App() {
           vault is still meaningfully down from its recent peak (data refreshes every 60s, kept only in
           this browser).
         </p>
+        {notificationsSupported() && (
+          <div className="notif-bar">
+            {notifPermission === "granted" && (
+              <span className="hint">🔔 Browser notifications enabled — you'll get one when a watched vault drops, as long as this tab is open.</span>
+            )}
+            {notifPermission === "default" && (
+              <button className="notif-btn" onClick={enableNotifications}>
+                Enable browser notifications
+              </button>
+            )}
+            {notifPermission === "denied" && (
+              <span className="hint">Notifications blocked — enable them in your browser's site settings to get alerts.</span>
+            )}
+          </div>
+        )}
       </header>
 
       <section className="search">
@@ -132,6 +213,42 @@ function App() {
         {results.length > 0 && (
           <ul className="results">
             {results.map((v) => {
+              const key = vaultKey(v);
+              const already = watchedKeys.has(key);
+              return (
+                <li key={key}>
+                  <div className="result-info">
+                    <span className="name">{v.name}</span>
+                    <span className="badge">{v.version}</span>
+                    <span className="network">{v.network}</span>
+                  </div>
+                  <div className="result-stats">
+                    <span>{v.netApyPct.toFixed(2)}%</span>
+                    <span>${v.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                    <button disabled={already} onClick={() => addVault(v)}>
+                      {already ? "Added" : "Add"}
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section className="screenshot">
+        <h2>Or add vaults from a screenshot</h2>
+        <p className="hint">
+          Upload a screenshot of a Morpho vault or portfolio page (like the Morpho app's own UI) and
+          this will try to read the vault names off it and suggest matches. Runs entirely in your
+          browser — the image is never uploaded anywhere.
+        </p>
+        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleScreenshot} disabled={ocrBusy} />
+        {ocrBusy && <div className="hint">Reading screenshot…</div>}
+        {ocrError && <div className="hint error">{ocrError}</div>}
+        {ocrMatches.length > 0 && (
+          <ul className="results">
+            {ocrMatches.map((v) => {
               const key = vaultKey(v);
               const already = watchedKeys.has(key);
               return (

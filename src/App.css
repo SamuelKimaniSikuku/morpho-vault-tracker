@@ -16,6 +16,45 @@ header h1 {
   max-width: 640px;
 }
 
+.notif-bar {
+  margin-top: 1rem;
+}
+
+.notif-btn {
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid #333;
+  background: #161616;
+  color: #cfe0ff;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.notif-btn:hover {
+  border-color: #5b8def;
+}
+
+.screenshot {
+  margin: 2rem 0;
+  padding-top: 1.5rem;
+  border-top: 1px solid #222;
+}
+
+.screenshot h2 {
+  font-size: 1.1rem;
+  margin-bottom: 0.4rem;
+}
+
+.screenshot input[type="file"] {
+  margin-top: 0.75rem;
+  color: #ccc;
+  font-size: 0.85rem;
+}
+
+.hint.error {
+  color: #ff8080;
+}
+
 .search {
   margin: 2rem 0;
   position: relative;
