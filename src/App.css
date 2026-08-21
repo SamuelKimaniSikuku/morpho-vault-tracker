@@ -1,0 +1,173 @@
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+header h1 {
+  font-size: 1.75rem;
+  margin: 0 0 0.4rem;
+}
+
+.subtitle {
+  color: #9a9a9a;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  max-width: 640px;
+}
+
+.search {
+  margin: 2rem 0;
+  position: relative;
+}
+
+.search input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  border: 1px solid #333;
+  background: #161616;
+  color: #eee;
+  font-size: 1rem;
+}
+
+.search input:focus {
+  outline: none;
+  border-color: #5b8def;
+}
+
+.hint {
+  color: #888;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.results {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.results li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid #232323;
+  background: #121212;
+}
+
+.results li:last-child {
+  border-bottom: none;
+}
+
+.result-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.result-info .name {
+  font-weight: 500;
+}
+
+.badge {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: #2a4b8d;
+  color: #cfe0ff;
+}
+
+.network {
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.result-stats {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-stats button {
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  border: none;
+  background: #5b8def;
+  color: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.result-stats button:disabled {
+  background: #333;
+  color: #888;
+  cursor: default;
+}
+
+.watchlist {
+  margin-top: 2.5rem;
+}
+
+.watchlist h2 {
+  font-size: 1.2rem;
+  margin-bottom: 0.75rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+th {
+  text-align: left;
+  color: #999;
+  font-weight: 500;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+td {
+  padding: 0.6rem;
+  border-bottom: 1px solid #1e1e1e;
+  font-variant-numeric: tabular-nums;
+}
+
+tr.warn td {
+  color: #ff5c5c;
+}
+
+.down-note {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+.remove {
+  background: none;
+  border: 1px solid #333;
+  color: #aaa;
+  border-radius: 8px;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.remove:hover {
+  border-color: #666;
+  color: #ddd;
+}
+
+footer {
+  margin-top: 3rem;
+  color: #777;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  border-top: 1px solid #222;
+  padding-top: 1rem;
+}
