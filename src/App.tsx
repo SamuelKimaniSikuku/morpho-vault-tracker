@@ -188,7 +188,15 @@ function App() {
         {notificationsSupported() && (
           <div className="notif-bar">
             {notifPermission === "granted" && (
-              <span className="hint">🔔 Browser notifications enabled — you'll get one when a watched vault drops, as long as this tab is open.</span>
+              <>
+                <span className="hint">🔔 Browser notifications enabled — you'll get one when a watched vault drops, as long as this tab is open.</span>
+                <button
+                  className="notif-btn"
+                  onClick={() => fireNotification("Test notification", "This is what a vault-drop alert will look like.")}
+                >
+                  Send test notification
+                </button>
+              </>
             )}
             {notifPermission === "default" && (
               <button className="notif-btn" onClick={enableNotifications}>

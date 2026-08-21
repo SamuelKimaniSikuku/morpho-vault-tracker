@@ -18,6 +18,10 @@ header h1 {
 
 .notif-bar {
   margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .notif-btn {
