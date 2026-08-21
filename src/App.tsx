@@ -39,6 +39,7 @@ function App() {
   const prevWarnRef = useRef<Record<string, boolean>>({});
 
   const [notifPermission, setNotifPermission] = useState(notificationPermission());
+  const [notifToast, setNotifToast] = useState<string | null>(null);
 
   const [ocrBusy, setOcrBusy] = useState(false);
   const [ocrError, setOcrError] = useState<string | null>(null);
@@ -113,7 +114,7 @@ function App() {
     const warn = isDepressed(live.netApyPct, live.tvlUsd, peakApy, peakTvl);
 
     if (warn && !prevWarnRef.current[key]) {
-      fireNotification(
+      sendNotification(
         `${v.name} is down`,
         `Net APY ${live.netApyPct.toFixed(2)}% (peak ${peakApy?.toFixed(2)}%), TVL $${live.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
       );
@@ -134,6 +135,16 @@ function App() {
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchlist]);
+
+  function sendNotification(title: string, body: string) {
+    const result = fireNotification(title, body);
+    if (result.attempted) {
+      setNotifToast(`✅ Browser accepted the notification call for "${title}". If nothing popped up, check macOS System Settings → Notifications → your browser (make sure it's allowed, style isn't "None"), and that Focus/Do Not Disturb is off.`);
+    } else {
+      setNotifToast(`❌ Notification call failed: ${result.error}`);
+    }
+    setTimeout(() => setNotifToast(null), 9000);
+  }
 
   async function enableNotifications() {
     const perm = await requestNotificationPermission();
@@ -192,7 +203,7 @@ function App() {
                 <span className="hint">🔔 Browser notifications enabled — you'll get one when a watched vault drops, as long as this tab is open.</span>
                 <button
                   className="notif-btn"
-                  onClick={() => fireNotification("Test notification", "This is what a vault-drop alert will look like.")}
+                  onClick={() => sendNotification("Test notification", "This is what a vault-drop alert will look like.")}
                 >
                   Send test notification
                 </button>
@@ -208,6 +219,7 @@ function App() {
             )}
           </div>
         )}
+        {notifToast && <div className="notif-toast">{notifToast}</div>}
       </header>
 
       <section className="search">

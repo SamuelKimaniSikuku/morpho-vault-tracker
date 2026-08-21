@@ -38,6 +38,18 @@ header h1 {
   border-color: #5b8def;
 }
 
+.notif-toast {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 8px;
+  background: #161616;
+  border: 1px solid #333;
+  font-size: 0.8rem;
+  color: #ccc;
+  line-height: 1.5;
+  max-width: 640px;
+}
+
 .screenshot {
   margin: 2rem 0;
   padding-top: 1.5rem;
