@@ -46,6 +46,12 @@ function App() {
   const [ocrMatches, setOcrMatches] = useState<VaultSummary[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const [apySortDir, setApySortDir] = useState<"asc" | "desc" | null>(null);
+
+  function toggleApySort() {
+    setApySortDir((prev) => (prev === "desc" ? "asc" : "desc"));
+  }
+
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (query.trim().length < 2) {
@@ -75,6 +81,18 @@ function App() {
     if (apys.length === 0) return null;
     return apys.reduce((sum, a) => sum + a, 0) / apys.length;
   }, [rows]);
+
+  const sortedWatchlist = useMemo(() => {
+    if (apySortDir === null) return watchlist;
+    return [...watchlist].sort((a, b) => {
+      const apyA = rows[vaultKey(a)]?.apy;
+      const apyB = rows[vaultKey(b)]?.apy;
+      if (apyA == null && apyB == null) return 0;
+      if (apyA == null) return 1; // vaults still loading/errored sink to the bottom
+      if (apyB == null) return -1;
+      return apySortDir === "asc" ? apyA - apyB : apyB - apyA;
+    });
+  }, [watchlist, rows, apySortDir]);
 
   function addVault(v: VaultSummary) {
     const watched: WatchedVault = {
@@ -317,14 +335,16 @@ function App() {
               <tr>
                 <th>Vault</th>
                 <th>Network</th>
-                <th>Net APY</th>
+                <th className="sortable" onClick={toggleApySort}>
+                  Net APY {apySortDir === "desc" ? "▼" : apySortDir === "asc" ? "▲" : "⇅"}
+                </th>
                 <th>TVL</th>
                 <th>Last checked</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {watchlist.map((v) => {
+              {sortedWatchlist.map((v) => {
                 const key = vaultKey(v);
                 const row = rows[key];
                 return (
