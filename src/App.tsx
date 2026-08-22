@@ -68,6 +68,14 @@ function App() {
 
   const watchedKeys = useMemo(() => new Set(watchlist.map(vaultKey)), [watchlist]);
 
+  const avgApy = useMemo(() => {
+    const apys = Object.values(rows)
+      .map((r) => r.apy)
+      .filter((a): a is number => a != null);
+    if (apys.length === 0) return null;
+    return apys.reduce((sum, a) => sum + a, 0) / apys.length;
+  }, [rows]);
+
   function addVault(v: VaultSummary) {
     const watched: WatchedVault = {
       address: v.address,
@@ -293,7 +301,15 @@ function App() {
       </section>
 
       <section className="watchlist">
-        <h2>Your watchlist</h2>
+        <div className="watchlist-header">
+          <h2>Your watchlist</h2>
+          {avgApy != null && (
+            <span className="avg-apy">
+              Average Net APY: <strong>{avgApy.toFixed(2)}%</strong> across {watchlist.length} vault
+              {watchlist.length === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
         {watchlist.length === 0 && <p className="hint">No vaults yet — search above and add some.</p>}
         {watchlist.length > 0 && (
           <table>
