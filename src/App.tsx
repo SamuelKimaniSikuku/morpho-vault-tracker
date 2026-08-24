@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { searchVaults, fetchLiveState, type VaultSummary, type WatchedVault, type Protocol } from "./vaults";
+import { searchVaults, fetchLiveState, getTopVault, type VaultSummary, type WatchedVault, type Protocol } from "./vaults";
 import {
   loadWatchlist,
   saveWatchlist,
@@ -93,6 +93,7 @@ function App() {
     yearn: true,
     beefy: true,
   });
+  const [topVaults, setTopVaults] = useState<Partial<Record<Protocol, VaultSummary | null>>>({});
 
   function toggleApySort() {
     setApySortDir((prev) => (prev === "desc" ? "asc" : "desc"));
@@ -135,6 +136,15 @@ function App() {
     for (const v of watchlist) counts[v.protocol]++;
     return counts;
   }, [watchlist]);
+
+  const activeProtocolsKey = useMemo(
+    () =>
+      (Object.keys(protocolCounts) as Protocol[])
+        .filter((p) => protocolCounts[p] > 0)
+        .sort()
+        .join(","),
+    [protocolCounts]
+  );
 
   const avgApy = useMemo(() => {
     const apys = Object.values(rows)
@@ -245,6 +255,28 @@ function App() {
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchlist]);
+
+  useEffect(() => {
+    const protocols = activeProtocolsKey ? (activeProtocolsKey.split(",") as Protocol[]) : [];
+    if (protocols.length === 0) return;
+
+    let cancelled = false;
+    async function refresh() {
+      const results = await Promise.all(protocols.map((p) => getTopVault(p)));
+      if (cancelled) return;
+      setTopVaults((prev) => {
+        const next = { ...prev };
+        protocols.forEach((p, i) => (next[p] = results[i]));
+        return next;
+      });
+    }
+    refresh();
+    const id = setInterval(refresh, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [activeProtocolsKey]);
 
   function sendNotification(title: string, body: string) {
     const result = fireNotification(title, body);
@@ -440,6 +472,49 @@ function App() {
           </div>
         </section>
       )}
+
+      {(() => {
+        const visibleProtocols = (Object.keys(PROTOCOL_LABELS) as Protocol[]).filter(
+          (p) => protocolCounts[p] > 0 && enabledProtocols[p]
+        );
+        if (visibleProtocols.length === 0) return null;
+        return (
+          <section className="spotlight">
+            <h2>Top vault in each project you hold</h2>
+            <p className="hint">
+              The single highest-APY vault across all of that protocol right now — not just your
+              watchlist — filtered to vaults with at least $50k TVL and a sane APY (some protocols
+              report broken numbers for tiny or reward-distorted vaults).
+            </p>
+            <div className="spotlight-cards">
+              {visibleProtocols.map((p) => {
+                const top = topVaults[p];
+                const key = top ? vaultKey(top) : null;
+                const already = key ? watchedKeys.has(key) : false;
+                return (
+                  <div key={p} className="spotlight-card">
+                    <span className={`badge badge-${p}`}>{PROTOCOL_LABELS[p]}</span>
+                    {top === undefined && <p className="hint">Loading…</p>}
+                    {top === null && <p className="hint">No eligible vault found right now.</p>}
+                    {top && (
+                      <>
+                        <span className="spotlight-name">{top.name}</span>
+                        <span className="spotlight-apy">{top.netApyPct.toFixed(2)}%</span>
+                        <span className="spotlight-meta">
+                          {top.network} · ${top.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })} TVL
+                        </span>
+                        <button disabled={already} onClick={() => addVault(top)}>
+                          {already ? "Added" : "Add to watchlist"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
 
       <section className="watchlist">
         <div className="watchlist-header">

@@ -50,6 +50,20 @@ export async function searchYearnVaults(query: string): Promise<VaultSummary[]> 
   return scored.map(({ v }) => v).slice(0, 25);
 }
 
+const TOP_VAULT_MIN_TVL_USD = 50_000;
+const TOP_VAULT_MAX_APY_PCT = 100;
+
+export async function getTopYearnVault(): Promise<VaultSummary | null> {
+  try {
+    const all = await loadCache();
+    const eligible = all.filter((v) => v.tvlUsd >= TOP_VAULT_MIN_TVL_USD && v.netApyPct <= TOP_VAULT_MAX_APY_PCT);
+    if (eligible.length === 0) return null;
+    return eligible.reduce((a, b) => (b.netApyPct > a.netApyPct ? b : a));
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchYearnLiveState(vault: WatchedVault): Promise<LiveState | null> {
   try {
     const res = await fetch(`${API_URL}/${vault.chainId}/vaults/${vault.address}`);

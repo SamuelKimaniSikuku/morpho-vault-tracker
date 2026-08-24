@@ -82,6 +82,22 @@ export async function searchBeefyVaults(query: string): Promise<VaultSummary[]> 
   return scored.map(({ v }) => toSummary(v, apy, tvl));
 }
 
+const TOP_VAULT_MIN_TVL_USD = 50_000;
+const TOP_VAULT_MAX_APY_PCT = 100; // stricter than the general display cap - this is a spotlight pick
+
+export async function getTopBeefyVault(): Promise<VaultSummary | null> {
+  try {
+    const [vaults, { apy, tvl }] = await Promise.all([loadVaultsList(), loadApyTvl()]);
+    const eligible = vaults
+      .map((v) => toSummary(v, apy, tvl))
+      .filter((v) => v.tvlUsd >= TOP_VAULT_MIN_TVL_USD && v.netApyPct <= TOP_VAULT_MAX_APY_PCT);
+    if (eligible.length === 0) return null;
+    return eligible.reduce((a, b) => (b.netApyPct > a.netApyPct ? b : a));
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchBeefyLiveState(vault: WatchedVault): Promise<LiveState | null> {
   if (!vault.beefyId) return null;
   try {

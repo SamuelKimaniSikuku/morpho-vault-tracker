@@ -105,6 +105,57 @@ export async function searchMorphoVaults(query: string): Promise<VaultSummary[]>
   return combined.slice(0, 25);
 }
 
+const TOP_VAULT_MIN_TVL_USD = 50_000;
+const TOP_VAULT_MAX_APY_FRACTION = 1.0; // 100% - above this the API is almost always returning a
+// reward-token pricing artifact, not real sustainable yield (seen values as absurd as 297,996%).
+
+export async function getTopMorphoVault(): Promise<VaultSummary | null> {
+  const filterClause = `where: { totalAssetsUsd_gte: ${TOP_VAULT_MIN_TVL_USD}, netApy_lte: ${TOP_VAULT_MAX_APY_FRACTION} }, orderBy: NetApy, orderDirection: Desc, first: 1`;
+  try {
+    const [v1Data, v2Data] = await Promise.all([
+      gql(`{ vaults(${filterClause}) { items { address name symbol chain { id network } state { netApy totalAssetsUsd } } } }`),
+      gql(`{ vaultV2s(${filterClause}) { items { address name symbol chain { id network } netApy totalAssetsUsd } } }`),
+    ]);
+
+    const v1: VaultSummary | null = v1Data.vaults.items[0]
+      ? {
+          protocol: "morpho",
+          address: v1Data.vaults.items[0].address,
+          chainId: v1Data.vaults.items[0].chain.id,
+          network: v1Data.vaults.items[0].chain.network,
+          name: v1Data.vaults.items[0].name.trim(),
+          symbol: v1Data.vaults.items[0].symbol,
+          badge: "V1",
+          morphoVersion: "v1",
+          netApyPct: v1Data.vaults.items[0].state.netApy * 100,
+          tvlUsd: v1Data.vaults.items[0].state.totalAssetsUsd,
+        }
+      : null;
+
+    const v2: VaultSummary | null = v2Data.vaultV2s.items[0]
+      ? {
+          protocol: "morpho",
+          address: v2Data.vaultV2s.items[0].address,
+          chainId: v2Data.vaultV2s.items[0].chain.id,
+          network: v2Data.vaultV2s.items[0].chain.network,
+          name: v2Data.vaultV2s.items[0].name.trim(),
+          symbol: v2Data.vaultV2s.items[0].symbol,
+          badge: "V2",
+          morphoVersion: "v2",
+          netApyPct: v2Data.vaultV2s.items[0].netApy * 100,
+          tvlUsd: v2Data.vaultV2s.items[0].totalAssetsUsd,
+        }
+      : null;
+
+    if (!v1 && !v2) return null;
+    if (!v1) return v2;
+    if (!v2) return v1;
+    return v1.netApyPct > v2.netApyPct ? v1 : v2;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchMorphoLiveState(vault: WatchedVault): Promise<LiveState | null> {
   try {
     if (vault.morphoVersion === "v2") {
