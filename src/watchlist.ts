@@ -88,6 +88,16 @@ export function peakInWindow(key: string, now: number): { peakApy: number | null
   };
 }
 
+export function troughInWindow(key: string, now: number): { troughApy: number | null; troughTvl: number | null } {
+  const cutoff = now - ALERT_WINDOW_MS;
+  const points = getHistory(key).filter((p) => p.ts >= cutoff);
+  if (points.length === 0) return { troughApy: null, troughTvl: null };
+  return {
+    troughApy: Math.min(...points.map((p) => p.apy)),
+    troughTvl: Math.min(...points.map((p) => p.tvl)),
+  };
+}
+
 export interface WindowStats {
   avgApy: number;
   minApy: number;
@@ -135,4 +145,16 @@ export function isDepressed(
   const apyDrop = peakApy - currentApy;
   const tvlDropPct = peakTvl ? ((peakTvl - currentTvl) / peakTvl) * 100 : 0;
   return apyDrop >= APY_DROP_PP || tvlDropPct >= TVL_DROP_PCT;
+}
+
+export function isImproved(
+  currentApy: number,
+  currentTvl: number,
+  troughApy: number | null,
+  troughTvl: number | null
+): boolean {
+  if (troughApy === null) return false;
+  const apyRise = currentApy - troughApy;
+  const tvlRisePct = troughTvl ? ((currentTvl - troughTvl) / troughTvl) * 100 : 0;
+  return apyRise >= APY_DROP_PP || tvlRisePct >= TVL_DROP_PCT;
 }

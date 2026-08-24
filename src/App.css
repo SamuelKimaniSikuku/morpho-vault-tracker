@@ -648,7 +648,12 @@ tr.warn td {
   color: var(--danger);
 }
 
-.down-note {
+tr.improved td {
+  color: var(--success);
+}
+
+.down-note,
+.up-note {
   font-size: 0.75rem;
   opacity: 0.85;
 }

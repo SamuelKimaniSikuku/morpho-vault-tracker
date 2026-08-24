@@ -6,7 +6,9 @@ import {
   vaultKey,
   appendHistory,
   peakInWindow,
+  troughInWindow,
   isDepressed,
+  isImproved,
   statsInWindow,
   type WindowStats,
 } from "./watchlist";
@@ -44,8 +46,10 @@ interface LiveRow {
   apy: number | null;
   tvl: number | null;
   peakApy: number | null;
+  troughApy: number | null;
   lastChecked: number | null;
   warn: boolean;
+  improved: boolean;
   error: boolean;
 }
 
@@ -82,6 +86,7 @@ function App() {
   const [rows, setRows] = useState<Record<string, LiveRow>>({});
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevWarnRef = useRef<Record<string, boolean>>({});
+  const prevImprovedRef = useRef<Record<string, boolean>>({});
 
   const [notifPermission, setNotifPermission] = useState(notificationPermission());
   const [notifToast, setNotifToast] = useState<string | null>(null);
@@ -252,6 +257,7 @@ function App() {
       return copy;
     });
     delete prevWarnRef.current[key];
+    delete prevImprovedRef.current[key];
   }
 
   async function checkOne(v: WatchedVault) {
@@ -263,13 +269,25 @@ function App() {
         ...prev,
         [key]: prev[key]
           ? { ...prev[key], error: true }
-          : { vault: v, apy: null, tvl: null, peakApy: null, lastChecked: null, warn: false, error: true },
+          : {
+              vault: v,
+              apy: null,
+              tvl: null,
+              peakApy: null,
+              troughApy: null,
+              lastChecked: null,
+              warn: false,
+              improved: false,
+              error: true,
+            },
       }));
       return;
     }
     appendHistory(key, { ts: now, apy: live.netApyPct, tvl: live.tvlUsd });
     const { peakApy, peakTvl } = peakInWindow(key, now);
+    const { troughApy, troughTvl } = troughInWindow(key, now);
     const warn = isDepressed(live.netApyPct, live.tvlUsd, peakApy, peakTvl);
+    const improved = !warn && isImproved(live.netApyPct, live.tvlUsd, troughApy, troughTvl);
 
     if (warn && !prevWarnRef.current[key]) {
       sendNotification(
@@ -277,11 +295,18 @@ function App() {
         `Net APY ${live.netApyPct.toFixed(2)}% (peak ${peakApy?.toFixed(2)}%), TVL $${live.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
       );
     }
+    if (improved && !prevImprovedRef.current[key]) {
+      sendNotification(
+        `${v.name} is up`,
+        `Net APY ${live.netApyPct.toFixed(2)}% (low ${troughApy?.toFixed(2)}%), TVL $${live.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+      );
+    }
     prevWarnRef.current[key] = warn;
+    prevImprovedRef.current[key] = improved;
 
     setRows((prev) => ({
       ...prev,
-      [key]: { vault: v, apy: live.netApyPct, tvl: live.tvlUsd, peakApy, lastChecked: now, warn, error: false },
+      [key]: { vault: v, apy: live.netApyPct, tvl: live.tvlUsd, peakApy, troughApy, lastChecked: now, warn, improved, error: false },
     }));
   }
 
@@ -672,7 +697,7 @@ function App() {
                 const key = vaultKey(v);
                 const row = rows[key];
                 return (
-                  <tr key={key} className={row?.warn ? "warn" : ""}>
+                  <tr key={key} className={row?.warn ? "warn" : row?.improved ? "improved" : ""}>
                     <td>{v.name}</td>
                     <td>
                       <span className={`badge badge-${v.protocol}`}>{PROTOCOL_LABELS[v.protocol]}</span>
@@ -682,6 +707,9 @@ function App() {
                       {row?.apy != null ? `${row.apy.toFixed(2)}%` : row?.error ? "error" : "…"}
                       {row?.warn && row.peakApy != null && (
                         <span className="down-note"> ↓ from {row.peakApy.toFixed(2)}% peak</span>
+                      )}
+                      {row?.improved && row.troughApy != null && (
+                        <span className="up-note"> ↑ from {row.troughApy.toFixed(2)}% low</span>
                       )}
                     </td>
                     <td>{row?.tvl != null ? `$${row.tvl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "…"}</td>
