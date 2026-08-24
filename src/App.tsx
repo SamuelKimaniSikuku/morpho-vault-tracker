@@ -90,6 +90,23 @@ function App() {
 
   const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
 
+  const [howToOpen, setHowToOpen] = useState(() => {
+    try {
+      return localStorage.getItem("morpho-tracker:how-to-dismissed") !== "1";
+    } catch {
+      return true;
+    }
+  });
+
+  function dismissHowTo() {
+    setHowToOpen(false);
+    try {
+      localStorage.setItem("morpho-tracker:how-to-dismissed", "1");
+    } catch {
+      // ignore - it'll just show again next visit
+    }
+  }
+
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
@@ -422,6 +439,20 @@ function App() {
         </p>
         {notifToast && <div className="notif-toast">{notifToast}</div>}
       </header>
+
+      {howToOpen && (
+        <section className="how-to">
+          <button className="how-to-dismiss" onClick={dismissHowTo} aria-label="Dismiss">
+            ✕
+          </button>
+          <h2>How to add a vault</h2>
+          <ol>
+            <li>Search a vault name below (e.g. "Steakhouse", "Curve") — or upload a screenshot further down instead</li>
+            <li>Check the network shown for each match, especially if the same name appears more than once</li>
+            <li>Click <strong>Add</strong> — it shows up in "Your watchlist" and starts refreshing every 60 seconds automatically</li>
+          </ol>
+        </section>
+      )}
 
       <section className="search">
         <input

@@ -155,6 +155,53 @@ header h1 {
   color: var(--danger);
 }
 
+.how-to {
+  position: relative;
+  margin-top: 1.5rem;
+  padding: 0.9rem 1.1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  max-width: 640px;
+}
+
+.how-to h2 {
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.how-to ol {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.how-to ol strong {
+  color: var(--text);
+}
+
+.how-to-dismiss {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.7rem;
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.2rem;
+  line-height: 1;
+}
+
+.how-to-dismiss:hover {
+  color: var(--text);
+}
+
 .search {
   margin: 2rem 0;
   position: relative;
