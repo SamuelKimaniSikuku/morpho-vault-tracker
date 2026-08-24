@@ -67,6 +67,32 @@ export function peakInWindow(key: string, now: number): { peakApy: number | null
   };
 }
 
+const STABLE_TOLERANCE_PP = 0.5;
+
+/**
+ * How long (ms) the vault's APY has stayed within STABLE_TOLERANCE_PP of its
+ * current value, walking back from now through recorded history. Capped by
+ * how much history we actually have (WINDOW_MS), so a long-stable vault
+ * just reports "at least" the full window rather than an exact figure.
+ */
+export function stableStreakMs(key: string, currentApy: number, now: number): { ms: number; capped: boolean } {
+  const cutoff = now - WINDOW_MS;
+  const points = getHistory(key)
+    .filter((p) => p.ts >= cutoff)
+    .sort((a, b) => a.ts - b.ts);
+
+  if (points.length === 0) return { ms: 0, capped: false };
+
+  let streakStart = now;
+  for (let i = points.length - 1; i >= 0; i--) {
+    if (Math.abs(points[i].apy - currentApy) > STABLE_TOLERANCE_PP) break;
+    streakStart = points[i].ts;
+  }
+
+  const capped = streakStart <= cutoff + 1000; // streak runs back to the edge of retained history
+  return { ms: now - streakStart, capped };
+}
+
 export function isDepressed(
   currentApy: number,
   currentTvl: number,

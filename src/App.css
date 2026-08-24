@@ -165,6 +165,67 @@ header h1 {
   cursor: default;
 }
 
+.performers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+@media (max-width: 560px) {
+  .performers {
+    grid-template-columns: 1fr;
+  }
+}
+
+.performer-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem 1.1rem;
+  border-radius: 10px;
+  border: 1px solid #2a2a2a;
+  background: #121212;
+}
+
+.performer-card.best {
+  border-color: rgba(90, 200, 130, 0.35);
+}
+
+.performer-card.worst {
+  border-color: rgba(255, 92, 92, 0.35);
+}
+
+.performer-label {
+  font-size: 0.75rem;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.performer-name {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.performer-apy {
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.performer-card.best .performer-apy {
+  color: #5ac882;
+}
+
+.performer-card.worst .performer-apy {
+  color: #ff5c5c;
+}
+
+.performer-streak {
+  font-size: 0.78rem;
+  color: #888;
+}
+
 .watchlist {
   margin-top: 2.5rem;
 }

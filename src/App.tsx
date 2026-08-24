@@ -7,6 +7,7 @@ import {
   appendHistory,
   peakInWindow,
   isDepressed,
+  stableStreakMs,
 } from "./watchlist";
 import { extractVaultCandidates } from "./ocr";
 import {
@@ -27,6 +28,15 @@ interface LiveRow {
   lastChecked: number | null;
   warn: boolean;
   error: boolean;
+}
+
+function formatDuration(ms: number): string {
+  const mins = Math.round(ms / 60_000);
+  if (mins < 1) return "under a minute";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  const rem = mins % 60;
+  return rem > 0 ? `${hours}h ${rem}m` : `${hours}h`;
 }
 
 function App() {
@@ -80,6 +90,17 @@ function App() {
       .filter((a): a is number => a != null);
     if (apys.length === 0) return null;
     return apys.reduce((sum, a) => sum + a, 0) / apys.length;
+  }, [rows]);
+
+  const performers = useMemo(() => {
+    const withApy = Object.values(rows).filter((r) => r.apy != null) as (LiveRow & { apy: number })[];
+    if (withApy.length < 2) return null;
+    const now = Date.now();
+    const best = withApy.reduce((a, b) => (b.apy > a.apy ? b : a));
+    const worst = withApy.reduce((a, b) => (b.apy < a.apy ? b : a));
+    const bestStreak = stableStreakMs(vaultKey(best.vault), best.apy, now);
+    const worstStreak = stableStreakMs(vaultKey(worst.vault), worst.apy, now);
+    return { best, worst, bestStreak, worstStreak };
   }, [rows]);
 
   const sortedWatchlist = useMemo(() => {
@@ -317,6 +338,29 @@ function App() {
           </ul>
         )}
       </section>
+
+      {performers && (
+        <section className="performers">
+          <div className="performer-card best">
+            <span className="performer-label">🏆 Best performer</span>
+            <span className="performer-name">{performers.best.vault.name}</span>
+            <span className="performer-apy">{performers.best.apy.toFixed(2)}%</span>
+            <span className="performer-streak">
+              Holding this level for {formatDuration(performers.bestStreak.ms)}
+              {performers.bestStreak.capped ? "+ (as far back as we've tracked it)" : ""}
+            </span>
+          </div>
+          <div className="performer-card worst">
+            <span className="performer-label">📉 Worst performer</span>
+            <span className="performer-name">{performers.worst.vault.name}</span>
+            <span className="performer-apy">{performers.worst.apy.toFixed(2)}%</span>
+            <span className="performer-streak">
+              Holding this level for {formatDuration(performers.worstStreak.ms)}
+              {performers.worstStreak.capped ? "+ (as far back as we've tracked it)" : ""}
+            </span>
+          </div>
+        </section>
+      )}
 
       <section className="watchlist">
         <div className="watchlist-header">
