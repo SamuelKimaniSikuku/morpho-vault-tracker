@@ -189,14 +189,57 @@ header h1 {
 }
 
 .performers {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
   margin-top: 2rem;
 }
 
+.performers-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.performers-title {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.window-picker {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.window-picker button {
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid #333;
+  background: transparent;
+  color: #999;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.window-picker button:hover {
+  border-color: #555;
+  color: #ccc;
+}
+
+.window-picker button.active {
+  background: #2a4b8d;
+  border-color: #2a4b8d;
+  color: #cfe0ff;
+}
+
+.performer-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
 @media (max-width: 560px) {
-  .performers {
+  .performer-cards {
     grid-template-columns: 1fr;
   }
 }

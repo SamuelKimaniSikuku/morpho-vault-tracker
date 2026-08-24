@@ -8,7 +8,8 @@ export interface HistoryPoint {
 
 const WATCHLIST_KEY = "morpho-tracker:watchlist";
 const HISTORY_KEY = "morpho-tracker:history";
-export const WINDOW_MS = 3 * 60 * 60 * 1000; // 3h peak window, mirrors status.py
+export const ALERT_WINDOW_MS = 3 * 60 * 60 * 1000; // 3h peak window used for drop alerts, mirrors status.py
+export const MAX_HISTORY_MS = 24 * 60 * 60 * 1000; // how much history we retain, caps selectable performer windows
 export const APY_DROP_PP = 1.0;
 export const TVL_DROP_PCT = 10.0;
 
@@ -66,7 +67,7 @@ function saveAllHistory(map: HistoryMap) {
 
 export function appendHistory(key: string, point: HistoryPoint) {
   const all = loadAllHistory();
-  const cutoff = point.ts - WINDOW_MS;
+  const cutoff = point.ts - MAX_HISTORY_MS;
   const existing = (all[key] ?? []).filter((p) => p.ts >= cutoff);
   existing.push(point);
   all[key] = existing;
@@ -78,7 +79,7 @@ export function getHistory(key: string): HistoryPoint[] {
 }
 
 export function peakInWindow(key: string, now: number): { peakApy: number | null; peakTvl: number | null } {
-  const cutoff = now - WINDOW_MS;
+  const cutoff = now - ALERT_WINDOW_MS;
   const points = getHistory(key).filter((p) => p.ts >= cutoff);
   if (points.length === 0) return { peakApy: null, peakTvl: null };
   return {
@@ -87,30 +88,41 @@ export function peakInWindow(key: string, now: number): { peakApy: number | null
   };
 }
 
-const STABLE_TOLERANCE_PP = 0.5;
+export interface WindowStats {
+  avgApy: number;
+  minApy: number;
+  maxApy: number;
+  pointCount: number;
+  earliestTs: number;
+  /** true if the earliest point is at the edge of retained history - the
+   * real average over the requested window may extend further back than
+   * we can actually see. */
+  capped: boolean;
+}
 
 /**
- * How long (ms) the vault's APY has stayed within STABLE_TOLERANCE_PP of its
- * current value, walking back from now through recorded history. Capped by
- * how much history we actually have (WINDOW_MS), so a long-stable vault
- * just reports "at least" the full window rather than an exact figure.
+ * Aggregates recorded APY checks within the last `windowMs`, so "best/worst
+ * performer" can be judged by sustained performance over a chosen period
+ * rather than just the current instant.
  */
-export function stableStreakMs(key: string, currentApy: number, now: number): { ms: number; capped: boolean } {
-  const cutoff = now - WINDOW_MS;
+export function statsInWindow(key: string, now: number, windowMs: number): WindowStats | null {
+  const cutoff = now - windowMs;
   const points = getHistory(key)
     .filter((p) => p.ts >= cutoff)
     .sort((a, b) => a.ts - b.ts);
+  if (points.length === 0) return null;
 
-  if (points.length === 0) return { ms: 0, capped: false };
-
-  let streakStart = now;
-  for (let i = points.length - 1; i >= 0; i--) {
-    if (Math.abs(points[i].apy - currentApy) > STABLE_TOLERANCE_PP) break;
-    streakStart = points[i].ts;
-  }
-
-  const capped = streakStart <= cutoff + 1000; // streak runs back to the edge of retained history
-  return { ms: now - streakStart, capped };
+  const apys = points.map((p) => p.apy);
+  const earliestTs = points[0].ts;
+  const historyCutoff = now - MAX_HISTORY_MS;
+  return {
+    avgApy: apys.reduce((s, a) => s + a, 0) / apys.length,
+    minApy: Math.min(...apys),
+    maxApy: Math.max(...apys),
+    pointCount: points.length,
+    earliestTs,
+    capped: earliestTs <= historyCutoff + 1000,
+  };
 }
 
 export function isDepressed(

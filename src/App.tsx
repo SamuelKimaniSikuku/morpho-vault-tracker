@@ -7,7 +7,8 @@ import {
   appendHistory,
   peakInWindow,
   isDepressed,
-  stableStreakMs,
+  statsInWindow,
+  type WindowStats,
 } from "./watchlist";
 import { extractVaultCandidates } from "./ocr";
 import {
@@ -25,6 +26,13 @@ const PROTOCOL_LABELS: Record<Protocol, string> = {
   yearn: "Yearn",
   beefy: "Beefy",
 };
+
+const PERFORMER_WINDOWS = [
+  { label: "1h", ms: 60 * 60 * 1000 },
+  { label: "3h", ms: 3 * 60 * 60 * 1000 },
+  { label: "6h", ms: 6 * 60 * 60 * 1000 },
+  { label: "24h", ms: 24 * 60 * 60 * 1000 },
+];
 
 interface LiveRow {
   vault: WatchedVault;
@@ -45,6 +53,22 @@ function formatDuration(ms: number): string {
   return rem > 0 ? `${hours}h ${rem}m` : `${hours}h`;
 }
 
+function performerNote(stats: WindowStats | null, windowMs: number, now: number, currentApy: number | null): string {
+  const windowLabel = PERFORMER_WINDOWS.find((w) => w.ms === windowMs)?.label ?? formatDuration(windowMs);
+  const current = currentApy != null ? `now ${currentApy.toFixed(2)}% · ` : "";
+
+  if (!stats || stats.pointCount < 2) {
+    return `${current}just added, not enough checks yet for a ${windowLabel} average`;
+  }
+
+  const coverageMs = now - stats.earliestTs;
+  if (coverageMs < windowMs * 0.9) {
+    return `${current}avg over ${formatDuration(coverageMs)} tracked so far (less than ${windowLabel})`;
+  }
+
+  return `${current}avg over last ${windowLabel} (${stats.minApy.toFixed(2)}%–${stats.maxApy.toFixed(2)}% range)`;
+}
+
 function App() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<VaultSummary[]>([]);
@@ -63,6 +87,7 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [apySortDir, setApySortDir] = useState<"asc" | "desc" | null>(null);
+  const [performerWindowMs, setPerformerWindowMs] = useState(PERFORMER_WINDOWS[1].ms); // default 3h
 
   function toggleApySort() {
     setApySortDir((prev) => (prev === "desc" ? "asc" : "desc"));
@@ -99,15 +124,22 @@ function App() {
   }, [rows]);
 
   const performers = useMemo(() => {
-    const withApy = Object.values(rows).filter((r) => r.apy != null) as (LiveRow & { apy: number })[];
-    if (withApy.length < 2) return null;
     const now = Date.now();
-    const best = withApy.reduce((a, b) => (b.apy > a.apy ? b : a));
-    const worst = withApy.reduce((a, b) => (b.apy < a.apy ? b : a));
-    const bestStreak = stableStreakMs(vaultKey(best.vault), best.apy, now);
-    const worstStreak = stableStreakMs(vaultKey(worst.vault), worst.apy, now);
-    return { best, worst, bestStreak, worstStreak };
-  }, [rows]);
+    const withStats = Object.values(rows)
+      .filter((r) => r.apy != null)
+      .map((r) => {
+        const stats = statsInWindow(vaultKey(r.vault), now, performerWindowMs);
+        // Fall back to the live snapshot if history hasn't caught up yet -
+        // still better than excluding a just-added vault entirely.
+        const avgApy = stats?.avgApy ?? r.apy!;
+        return { row: r, stats, avgApy };
+      });
+    if (withStats.length < 2) return null;
+
+    const best = withStats.reduce((a, b) => (b.avgApy > a.avgApy ? b : a));
+    const worst = withStats.reduce((a, b) => (b.avgApy < a.avgApy ? b : a));
+    return { best, worst, now };
+  }, [rows, performerWindowMs]);
 
   const sortedWatchlist = useMemo(() => {
     if (apySortDir === null) return watchlist;
@@ -352,23 +384,37 @@ function App() {
 
       {performers && (
         <section className="performers">
-          <div className="performer-card best">
-            <span className="performer-label">🏆 Best performer</span>
-            <span className="performer-name">{performers.best.vault.name}</span>
-            <span className="performer-apy">{performers.best.apy.toFixed(2)}%</span>
-            <span className="performer-streak">
-              Holding this level for {formatDuration(performers.bestStreak.ms)}
-              {performers.bestStreak.capped ? "+ (as far back as we've tracked it)" : ""}
-            </span>
+          <div className="performers-header">
+            <span className="performers-title">Performance highlights</span>
+            <div className="window-picker">
+              {PERFORMER_WINDOWS.map((w) => (
+                <button
+                  key={w.label}
+                  className={performerWindowMs === w.ms ? "active" : ""}
+                  onClick={() => setPerformerWindowMs(w.ms)}
+                >
+                  {w.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="performer-card worst">
-            <span className="performer-label">📉 Worst performer</span>
-            <span className="performer-name">{performers.worst.vault.name}</span>
-            <span className="performer-apy">{performers.worst.apy.toFixed(2)}%</span>
-            <span className="performer-streak">
-              Holding this level for {formatDuration(performers.worstStreak.ms)}
-              {performers.worstStreak.capped ? "+ (as far back as we've tracked it)" : ""}
-            </span>
+          <div className="performer-cards">
+            <div className="performer-card best">
+              <span className="performer-label">🏆 Best performer</span>
+              <span className="performer-name">{performers.best.row.vault.name}</span>
+              <span className="performer-apy">{performers.best.avgApy.toFixed(2)}%</span>
+              <span className="performer-streak">
+                {performerNote(performers.best.stats, performerWindowMs, performers.now, performers.best.row.apy)}
+              </span>
+            </div>
+            <div className="performer-card worst">
+              <span className="performer-label">📉 Worst performer</span>
+              <span className="performer-name">{performers.worst.row.vault.name}</span>
+              <span className="performer-apy">{performers.worst.avgApy.toFixed(2)}%</span>
+              <span className="performer-streak">
+                {performerNote(performers.worst.stats, performerWindowMs, performers.now, performers.worst.row.apy)}
+              </span>
+            </div>
           </div>
         </section>
       )}
