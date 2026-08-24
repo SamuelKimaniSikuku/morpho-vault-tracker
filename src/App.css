@@ -152,6 +152,16 @@ header h1 {
   color: #f0dfa6;
 }
 
+.badge-aave {
+  background: #3d1f5c;
+  color: #ddb8ff;
+}
+
+.badge-compound {
+  background: #0e3a4d;
+  color: #a6dcf0;
+}
+
 .badge-outline {
   font-size: 0.7rem;
   padding: 0.1rem 0.4rem;

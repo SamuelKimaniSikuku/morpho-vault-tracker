@@ -25,6 +25,8 @@ const PROTOCOL_LABELS: Record<Protocol, string> = {
   morpho: "Morpho",
   yearn: "Yearn",
   beefy: "Beefy",
+  aave: "Aave",
+  compound: "Compound",
 };
 
 const PERFORMER_WINDOWS = [
@@ -92,6 +94,8 @@ function App() {
     morpho: true,
     yearn: true,
     beefy: true,
+    aave: true,
+    compound: true,
   });
   const [topVaults, setTopVaults] = useState<Partial<Record<Protocol, VaultSummary | null>>>({});
 
@@ -132,7 +136,7 @@ function App() {
   const filteredKeys = useMemo(() => new Set(filteredWatchlist.map(vaultKey)), [filteredWatchlist]);
 
   const protocolCounts = useMemo(() => {
-    const counts: Record<Protocol, number> = { morpho: 0, yearn: 0, beefy: 0 };
+    const counts: Record<Protocol, number> = { morpho: 0, yearn: 0, beefy: 0, aave: 0, compound: 0 };
     for (const v of watchlist) counts[v.protocol]++;
     return counts;
   }, [watchlist]);
@@ -334,7 +338,7 @@ function App() {
       <header>
         <h1>Vault Watch</h1>
         <p className="subtitle">
-          Search vaults across Morpho, Yearn, and Beefy, add them to your watchlist, and see live
+          Search vaults across Morpho, Yearn, Beefy, Aave, and Compound, add them to your watchlist, and see live
           APY/TVL. Rows turn red when a vault is still meaningfully down from its recent peak (data
           refreshes every 60s, kept only in this browser).
         </p>
@@ -402,7 +406,7 @@ function App() {
       <section className="screenshot">
         <h2>Or add vaults from a screenshot</h2>
         <p className="hint">
-          Upload a screenshot of a vault or portfolio page (Morpho, Yearn, Beefy — any of them) and
+          Upload a screenshot of a vault or portfolio page (Morpho, Yearn, Beefy, Aave, Compound — any of them) and
           this will try to read the vault names off it and suggest matches. Runs entirely in your
           browser — the image is never uploaded anywhere.
         </p>
@@ -594,8 +598,9 @@ function App() {
       </section>
 
       <footer>
-        Data from Morpho, Yearn, and Beefy's public APIs. Nothing here is investment advice — this is a
-        monitoring tool only. Your watchlist is stored locally in your browser, not on any server.
+        Data from Morpho, Yearn, Beefy, and DefiLlama (Aave, Compound) public APIs. Nothing here is
+        investment advice — this is a monitoring tool only. Your watchlist is stored locally in your
+        browser, not on any server.
       </footer>
     </div>
   );
