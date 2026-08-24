@@ -88,9 +88,18 @@ function App() {
 
   const [apySortDir, setApySortDir] = useState<"asc" | "desc" | null>(null);
   const [performerWindowMs, setPerformerWindowMs] = useState(PERFORMER_WINDOWS[1].ms); // default 3h
+  const [enabledProtocols, setEnabledProtocols] = useState<Record<Protocol, boolean>>({
+    morpho: true,
+    yearn: true,
+    beefy: true,
+  });
 
   function toggleApySort() {
     setApySortDir((prev) => (prev === "desc" ? "asc" : "desc"));
+  }
+
+  function toggleProtocol(p: Protocol) {
+    setEnabledProtocols((prev) => ({ ...prev, [p]: !prev[p] }));
   }
 
   useEffect(() => {
@@ -115,18 +124,31 @@ function App() {
 
   const watchedKeys = useMemo(() => new Set(watchlist.map(vaultKey)), [watchlist]);
 
+  const filteredWatchlist = useMemo(
+    () => watchlist.filter((v) => enabledProtocols[v.protocol]),
+    [watchlist, enabledProtocols]
+  );
+  const filteredKeys = useMemo(() => new Set(filteredWatchlist.map(vaultKey)), [filteredWatchlist]);
+
+  const protocolCounts = useMemo(() => {
+    const counts: Record<Protocol, number> = { morpho: 0, yearn: 0, beefy: 0 };
+    for (const v of watchlist) counts[v.protocol]++;
+    return counts;
+  }, [watchlist]);
+
   const avgApy = useMemo(() => {
     const apys = Object.values(rows)
+      .filter((r) => filteredKeys.has(vaultKey(r.vault)))
       .map((r) => r.apy)
       .filter((a): a is number => a != null);
     if (apys.length === 0) return null;
     return apys.reduce((sum, a) => sum + a, 0) / apys.length;
-  }, [rows]);
+  }, [rows, filteredKeys]);
 
   const performers = useMemo(() => {
     const now = Date.now();
     const withStats = Object.values(rows)
-      .filter((r) => r.apy != null)
+      .filter((r) => r.apy != null && filteredKeys.has(vaultKey(r.vault)))
       .map((r) => {
         const stats = statsInWindow(vaultKey(r.vault), now, performerWindowMs);
         // Fall back to the live snapshot if history hasn't caught up yet -
@@ -139,11 +161,11 @@ function App() {
     const best = withStats.reduce((a, b) => (b.avgApy > a.avgApy ? b : a));
     const worst = withStats.reduce((a, b) => (b.avgApy < a.avgApy ? b : a));
     return { best, worst, now };
-  }, [rows, performerWindowMs]);
+  }, [rows, performerWindowMs, filteredKeys]);
 
   const sortedWatchlist = useMemo(() => {
-    if (apySortDir === null) return watchlist;
-    return [...watchlist].sort((a, b) => {
+    if (apySortDir === null) return filteredWatchlist;
+    return [...filteredWatchlist].sort((a, b) => {
       const apyA = rows[vaultKey(a)]?.apy;
       const apyB = rows[vaultKey(b)]?.apy;
       if (apyA == null && apyB == null) return 0;
@@ -151,7 +173,7 @@ function App() {
       if (apyB == null) return -1;
       return apySortDir === "asc" ? apyA - apyB : apyB - apyA;
     });
-  }, [watchlist, rows, apySortDir]);
+  }, [filteredWatchlist, rows, apySortDir]);
 
   function addVault(v: VaultSummary) {
     const watched: WatchedVault = {
@@ -424,13 +446,32 @@ function App() {
           <h2>Your watchlist</h2>
           {avgApy != null && (
             <span className="avg-apy">
-              Average Net APY: <strong>{avgApy.toFixed(2)}%</strong> across {watchlist.length} vault
-              {watchlist.length === 1 ? "" : "s"}
+              Average Net APY: <strong>{avgApy.toFixed(2)}%</strong> across {filteredWatchlist.length} vault
+              {filteredWatchlist.length === 1 ? "" : "s"}
             </span>
           )}
         </div>
-        {watchlist.length === 0 && <p className="hint">No vaults yet — search above and add some.</p>}
         {watchlist.length > 0 && (
+          <div className="protocol-filter">
+            <span className="filter-label">Filter by project:</span>
+            {(Object.keys(PROTOCOL_LABELS) as Protocol[])
+              .filter((p) => protocolCounts[p] > 0)
+              .map((p) => (
+                <button
+                  key={p}
+                  className={`badge badge-${p} filter-chip ${enabledProtocols[p] ? "" : "off"}`}
+                  onClick={() => toggleProtocol(p)}
+                >
+                  {PROTOCOL_LABELS[p]} ({protocolCounts[p]})
+                </button>
+              ))}
+          </div>
+        )}
+        {watchlist.length === 0 && <p className="hint">No vaults yet — search above and add some.</p>}
+        {watchlist.length > 0 && filteredWatchlist.length === 0 && (
+          <p className="hint">No vaults match the selected filter.</p>
+        )}
+        {filteredWatchlist.length > 0 && (
           <table>
             <thead>
               <tr>

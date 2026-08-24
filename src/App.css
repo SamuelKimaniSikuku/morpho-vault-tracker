@@ -319,6 +319,39 @@ header h1 {
   color: #eaeaea;
 }
 
+.protocol-filter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.filter-label {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.filter-chip {
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  opacity: 1;
+  transition: opacity 0.15s;
+}
+
+.filter-chip.off {
+  opacity: 0.35;
+}
+
+.filter-chip:hover {
+  opacity: 0.8;
+}
+
+.filter-chip.off:hover {
+  opacity: 0.55;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
