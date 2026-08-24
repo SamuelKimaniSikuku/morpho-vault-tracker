@@ -17,7 +17,7 @@ header h1 {
 }
 
 .subtitle {
-  color: #9a9a9a;
+  color: var(--text-muted);
   font-size: 0.9rem;
   line-height: 1.5;
   max-width: 640px;
@@ -27,13 +27,32 @@ header h1 {
   position: relative;
 }
 
+.theme-toggle {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  cursor: pointer;
+  font-size: 1.05rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+}
+
+.theme-toggle:hover {
+  border-color: var(--accent);
+}
+
 .notif-bell {
   position: relative;
   width: 2.2rem;
   height: 2.2rem;
   border-radius: 999px;
-  border: 1px solid #333;
-  background: #161616;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
   cursor: pointer;
   font-size: 1.05rem;
   line-height: 1;
@@ -44,7 +63,7 @@ header h1 {
 }
 
 .notif-bell:hover {
-  border-color: #5b8def;
+  border-color: var(--accent);
   opacity: 1;
 }
 
@@ -65,8 +84,8 @@ header h1 {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 999px;
-  background: #5b8def;
-  border: 1.5px solid #0d0d0d;
+  background: var(--accent);
+  border: 1.5px solid var(--bg);
 }
 
 .notif-panel {
@@ -77,9 +96,9 @@ header h1 {
   width: 260px;
   padding: 0.85rem;
   border-radius: 10px;
-  border: 1px solid #333;
-  background: #161616;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
@@ -92,25 +111,25 @@ header h1 {
 .notif-btn {
   padding: 0.5rem 0.9rem;
   border-radius: 8px;
-  border: 1px solid #333;
-  background: #1c1c1c;
-  color: #cfe0ff;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
   cursor: pointer;
   font-size: 0.85rem;
 }
 
 .notif-btn:hover {
-  border-color: #5b8def;
+  border-color: var(--accent);
 }
 
 .notif-toast {
   margin-top: 0.75rem;
   padding: 0.65rem 0.9rem;
   border-radius: 8px;
-  background: #161616;
-  border: 1px solid #333;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
   font-size: 0.8rem;
-  color: #ccc;
+  color: var(--text-muted);
   line-height: 1.5;
   max-width: 640px;
 }
@@ -118,7 +137,7 @@ header h1 {
 .screenshot {
   margin: 2rem 0;
   padding-top: 1.5rem;
-  border-top: 1px solid #222;
+  border-top: 1px solid var(--border);
 }
 
 .screenshot h2 {
@@ -128,12 +147,12 @@ header h1 {
 
 .screenshot input[type="file"] {
   margin-top: 0.75rem;
-  color: #ccc;
+  color: var(--text-muted);
   font-size: 0.85rem;
 }
 
 .hint.error {
-  color: #ff8080;
+  color: var(--danger);
 }
 
 .search {
@@ -145,19 +164,19 @@ header h1 {
   width: 100%;
   padding: 0.75rem 1rem;
   border-radius: 10px;
-  border: 1px solid #333;
-  background: #161616;
-  color: #eee;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
   font-size: 1rem;
 }
 
 .search input:focus {
   outline: none;
-  border-color: #5b8def;
+  border-color: var(--accent);
 }
 
 .hint {
-  color: #888;
+  color: var(--text-faint);
   font-size: 0.85rem;
   margin-top: 0.5rem;
 }
@@ -166,7 +185,7 @@ header h1 {
   list-style: none;
   margin: 0.75rem 0 0;
   padding: 0;
-  border: 1px solid #2a2a2a;
+  border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -176,8 +195,8 @@ header h1 {
   justify-content: space-between;
   align-items: center;
   padding: 0.7rem 1rem;
-  border-bottom: 1px solid #232323;
-  background: #121212;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
 }
 
 .results li:last-child {
@@ -231,13 +250,13 @@ header h1 {
   font-size: 0.7rem;
   padding: 0.1rem 0.4rem;
   border-radius: 999px;
-  border: 1px solid #444;
-  color: #aaa;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
 }
 
 .network {
   font-size: 0.8rem;
-  color: #999;
+  color: var(--text-muted);
 }
 
 .result-stats {
@@ -251,15 +270,15 @@ header h1 {
   padding: 0.35rem 0.75rem;
   border-radius: 8px;
   border: none;
-  background: #5b8def;
-  color: white;
+  background: var(--accent);
+  color: var(--accent-contrast);
   cursor: pointer;
   font-size: 0.85rem;
 }
 
 .result-stats button:disabled {
-  background: #333;
-  color: #888;
+  background: var(--border);
+  color: var(--text-faint);
   cursor: default;
 }
 
@@ -289,16 +308,16 @@ header h1 {
 .window-picker button {
   padding: 0.25rem 0.65rem;
   border-radius: 999px;
-  border: 1px solid #333;
+  border: 1px solid var(--border);
   background: transparent;
-  color: #999;
+  color: var(--text-muted);
   font-size: 0.78rem;
   cursor: pointer;
 }
 
 .window-picker button:hover {
-  border-color: #555;
-  color: #ccc;
+  border-color: var(--text-muted);
+  color: var(--text);
 }
 
 .window-picker button.active {
@@ -325,8 +344,8 @@ header h1 {
   gap: 0.25rem;
   padding: 1rem 1.1rem;
   border-radius: 10px;
-  border: 1px solid #2a2a2a;
-  background: #121212;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
 }
 
 .performer-card.best {
@@ -339,7 +358,7 @@ header h1 {
 
 .performer-label {
   font-size: 0.75rem;
-  color: #999;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -355,16 +374,16 @@ header h1 {
 }
 
 .performer-card.best .performer-apy {
-  color: #5ac882;
+  color: var(--success);
 }
 
 .performer-card.worst .performer-apy {
-  color: #ff5c5c;
+  color: var(--danger);
 }
 
 .performer-streak {
   font-size: 0.78rem;
-  color: #888;
+  color: var(--text-faint);
 }
 
 .spotlight {
@@ -400,8 +419,8 @@ header h1 {
   gap: 0.2rem;
   padding: 0.65rem 0.7rem;
   border-radius: 8px;
-  border: 1px solid #2a2a2a;
-  background: #121212;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
   min-width: 0; /* let ellipsis truncation actually shrink below content width in a grid track */
 }
 
@@ -418,12 +437,12 @@ header h1 {
 .spotlight-apy {
   font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
-  color: #5ac882;
+  color: var(--success);
 }
 
 .spotlight-meta {
   font-size: 0.68rem;
-  color: #888;
+  color: var(--text-faint);
   margin-bottom: 0.3rem;
   max-width: 100%;
   white-space: nowrap;
@@ -435,16 +454,16 @@ header h1 {
   padding: 0.25rem 0.5rem;
   border-radius: 6px;
   border: none;
-  background: #5b8def;
-  color: white;
+  background: var(--accent);
+  color: var(--accent-contrast);
   cursor: pointer;
   font-size: 0.72rem;
   width: 100%;
 }
 
 .spotlight-card button:disabled {
-  background: #333;
-  color: #888;
+  background: var(--border);
+  color: var(--text-faint);
   cursor: default;
 }
 
@@ -468,11 +487,11 @@ header h1 {
 
 .avg-apy {
   font-size: 0.85rem;
-  color: #999;
+  color: var(--text-muted);
 }
 
 .avg-apy strong {
-  color: #eaeaea;
+  color: var(--text);
 }
 
 .protocol-filter {
@@ -485,7 +504,7 @@ header h1 {
 
 .filter-label {
   font-size: 0.8rem;
-  color: #888;
+  color: var(--text-faint);
 }
 
 .filter-chip {
@@ -516,10 +535,10 @@ table {
 
 th {
   text-align: left;
-  color: #999;
+  color: var(--text-muted);
   font-weight: 500;
   padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid #2a2a2a;
+  border-bottom: 1px solid var(--border);
 }
 
 th.sortable {
@@ -528,17 +547,17 @@ th.sortable {
 }
 
 th.sortable:hover {
-  color: #ccc;
+  color: var(--text);
 }
 
 td {
   padding: 0.6rem;
-  border-bottom: 1px solid #1e1e1e;
+  border-bottom: 1px solid var(--border);
   font-variant-numeric: tabular-nums;
 }
 
 tr.warn td {
-  color: #ff5c5c;
+  color: var(--danger);
 }
 
 .down-note {
@@ -548,8 +567,8 @@ tr.warn td {
 
 .remove {
   background: none;
-  border: 1px solid #333;
-  color: #aaa;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
   border-radius: 8px;
   padding: 0.3rem 0.6rem;
   cursor: pointer;
@@ -557,15 +576,15 @@ tr.warn td {
 }
 
 .remove:hover {
-  border-color: #666;
-  color: #ddd;
+  border-color: var(--text-muted);
+  color: var(--text);
 }
 
 footer {
   margin-top: 3rem;
-  color: #777;
+  color: var(--text-faint);
   font-size: 0.8rem;
   line-height: 1.5;
-  border-top: 1px solid #222;
+  border-top: 1px solid var(--border);
   padding-top: 1rem;
 }

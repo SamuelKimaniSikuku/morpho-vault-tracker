@@ -17,6 +17,7 @@ import {
   requestNotificationPermission,
   fireNotification,
 } from "./notify";
+import { getInitialTheme, applyTheme, type Theme } from "./theme";
 import "./App.css";
 
 const POLL_MS = 60_000;
@@ -86,6 +87,12 @@ function App() {
   const [notifToast, setNotifToast] = useState<string | null>(null);
   const [notifPanelOpen, setNotifPanelOpen] = useState(false);
   const notifPanelRef = useRef<HTMLDivElement | null>(null);
+
+  const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   const [ocrBusy, setOcrBusy] = useState(false);
   const [ocrError, setOcrError] = useState<string | null>(null);
@@ -342,6 +349,14 @@ function App() {
       <header>
         <div className="title-row">
           <h1>Vault Watch</h1>
+          <button
+            className="theme-toggle"
+            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            aria-label="Toggle light/dark theme"
+            title="Toggle light/dark theme"
+          >
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
           {notificationsSupported() && (
             <div className="notif-bell-wrap" ref={notifPanelRef}>
               <button
