@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { searchVaults, fetchLiveState, getTopVault, type VaultSummary, type WatchedVault, type Protocol } from "./vaults";
+import { searchVaults, fetchLiveState, getTopVault, groupVaults, type VaultSummary, type WatchedVault, type Protocol } from "./vaults";
 import {
   loadWatchlist,
   saveWatchlist,
@@ -115,16 +115,8 @@ function App() {
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [ocrMatches, setOcrMatches] = useState<VaultSummary[]>([]);
 
-  const ocrGroups = useMemo(() => {
-    const groups = new Map<string, VaultSummary[]>();
-    for (const v of ocrMatches) {
-      const key = `${v.protocol}:${v.name.trim().toLowerCase()}`;
-      const list = groups.get(key) ?? [];
-      list.push(v);
-      groups.set(key, list);
-    }
-    return Array.from(groups.values());
-  }, [ocrMatches]);
+  const ocrGroups = useMemo(() => groupVaults(ocrMatches), [ocrMatches]);
+  const resultGroups = useMemo(() => groupVaults(results), [results]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [apySortDir, setApySortDir] = useState<"asc" | "desc" | null>(null);
@@ -462,28 +454,41 @@ function App() {
           onChange={(e) => setQuery(e.target.value)}
         />
         {searching && <div className="hint">Searching…</div>}
-        {results.length > 0 && (
+        {resultGroups.length > 0 && (
           <ul className="results">
-            {results.map((v) => {
-              const key = vaultKey(v);
-              const already = watchedKeys.has(key);
-              return (
-                <li key={key}>
-                  <div className="result-info">
-                    <span className="name">{v.name}</span>
-                    <span className={`badge badge-${v.protocol}`}>{PROTOCOL_LABELS[v.protocol]}</span>
-                    <span className="badge-outline">{v.badge}</span>
-                    <span className="network">{v.network}</span>
-                  </div>
-                  <div className="result-stats">
-                    <span>{v.netApyPct.toFixed(2)}%</span>
-                    <span>${v.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                    <button disabled={already} onClick={() => addVault(v)}>
-                      {already ? "Added" : "Add"}
-                    </button>
-                  </div>
-                </li>
+            {resultGroups.flatMap((group) => {
+              const rows = [];
+              if (group.length > 1) {
+                rows.push(
+                  <li key={`label:${group[0].protocol}:${group[0].name}`} className="group-label-row">
+                    {group[0].name} · {group.length} networks
+                  </li>
+                );
+              }
+              rows.push(
+                ...group.map((v) => {
+                  const key = vaultKey(v);
+                  const already = watchedKeys.has(key);
+                  return (
+                    <li key={key}>
+                      <div className="result-info">
+                        <span className="name">{v.name}</span>
+                        <span className={`badge badge-${v.protocol}`}>{PROTOCOL_LABELS[v.protocol]}</span>
+                        <span className="badge-outline">{v.badge}</span>
+                        <span className={group.length > 1 ? "network network-emphasis" : "network"}>{v.network}</span>
+                      </div>
+                      <div className="result-stats">
+                        <span>{v.netApyPct.toFixed(2)}%</span>
+                        <span>${v.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        <button disabled={already} onClick={() => addVault(v)}>
+                          {already ? "Added" : "Add"}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })
               );
+              return rows;
             })}
           </ul>
         )}
