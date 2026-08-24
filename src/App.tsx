@@ -97,6 +97,17 @@ function App() {
   const [ocrBusy, setOcrBusy] = useState(false);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [ocrMatches, setOcrMatches] = useState<VaultSummary[]>([]);
+
+  const ocrGroups = useMemo(() => {
+    const groups = new Map<string, VaultSummary[]>();
+    for (const v of ocrMatches) {
+      const key = `${v.protocol}:${v.name.trim().toLowerCase()}`;
+      const list = groups.get(key) ?? [];
+      list.push(v);
+      groups.set(key, list);
+    }
+    return Array.from(groups.values());
+  }, [ocrMatches]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [apySortDir, setApySortDir] = useState<"asc" | "desc" | null>(null);
@@ -457,31 +468,41 @@ function App() {
         <input ref={fileInputRef} type="file" accept="image/*" onChange={handleScreenshot} disabled={ocrBusy} />
         {ocrBusy && <div className="hint">Reading screenshot…</div>}
         {ocrError && <div className="hint error">{ocrError}</div>}
-        {ocrMatches.length > 0 && (
-          <ul className="results">
-            {ocrMatches.map((v) => {
-              const key = vaultKey(v);
-              const already = watchedKeys.has(key);
-              return (
-                <li key={key}>
-                  <div className="result-info">
-                    <span className="name">{v.name}</span>
-                    <span className={`badge badge-${v.protocol}`}>{PROTOCOL_LABELS[v.protocol]}</span>
-                    <span className="badge-outline">{v.badge}</span>
-                    <span className="network">{v.network}</span>
-                  </div>
-                  <div className="result-stats">
-                    <span>{v.netApyPct.toFixed(2)}%</span>
-                    <span>${v.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                    <button disabled={already} onClick={() => addVault(v)}>
-                      {already ? "Added" : "Add"}
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        {ocrGroups.map((group) => {
+          const ambiguous = group.length > 1;
+          return (
+            <div key={`${group[0].protocol}:${group[0].name}`} className={ambiguous ? "ocr-group ambiguous" : "ocr-group"}>
+              {ambiguous && (
+                <p className="ocr-group-warning">
+                  ⚠️ "{group[0].name}" exists on {group.length} networks — pick the right one:
+                </p>
+              )}
+              <ul className="results">
+                {group.map((v) => {
+                  const key = vaultKey(v);
+                  const already = watchedKeys.has(key);
+                  return (
+                    <li key={key}>
+                      <div className="result-info">
+                        <span className="name">{v.name}</span>
+                        <span className={`badge badge-${v.protocol}`}>{PROTOCOL_LABELS[v.protocol]}</span>
+                        <span className="badge-outline">{v.badge}</span>
+                        <span className={ambiguous ? "network network-emphasis" : "network"}>{v.network}</span>
+                      </div>
+                      <div className="result-stats">
+                        <span>{v.netApyPct.toFixed(2)}%</span>
+                        <span>${v.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                        <button disabled={already} onClick={() => addVault(v)}>
+                          {already ? "Added" : "Add"}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
       </section>
 
       {performers && (
