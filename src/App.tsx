@@ -491,9 +491,12 @@ function App() {
                     {top === null && <p className="hint">No eligible vault found right now.</p>}
                     {top && (
                       <>
-                        <span className="spotlight-name">{top.name}</span>
+                        <span className="spotlight-name" title={top.name}>{top.name}</span>
                         <span className="spotlight-apy">{top.netApyPct.toFixed(2)}%</span>
-                        <span className="spotlight-meta">
+                        <span
+                          className="spotlight-meta"
+                          title={`${top.network} · $${top.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })} TVL`}
+                        >
                           {top.network} · ${top.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })} TVL
                         </span>
                         <button disabled={already} onClick={() => addVault(top)}>

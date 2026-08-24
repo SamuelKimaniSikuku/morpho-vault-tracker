@@ -318,47 +318,63 @@ header h1 {
 
 .spotlight-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.6rem;
+}
+
+@media (max-width: 900px) {
+  .spotlight-cards {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
 }
 
 .spotlight-card {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.3rem;
-  padding: 1rem 1.1rem;
-  border-radius: 10px;
+  gap: 0.2rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: 8px;
   border: 1px solid #2a2a2a;
   background: #121212;
+  min-width: 0; /* let ellipsis truncation actually shrink below content width in a grid track */
 }
 
 .spotlight-name {
-  font-size: 0.95rem;
+  font-size: 0.78rem;
   font-weight: 500;
-  margin-top: 0.2rem;
+  margin-top: 0.1rem;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .spotlight-apy {
-  font-size: 1.4rem;
+  font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
   color: #5ac882;
 }
 
 .spotlight-meta {
-  font-size: 0.78rem;
+  font-size: 0.68rem;
   color: #888;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.3rem;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .spotlight-card button {
-  padding: 0.35rem 0.75rem;
-  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
   border: none;
   background: #5b8def;
   color: white;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.72rem;
+  width: 100%;
 }
 
 .spotlight-card button:disabled {
