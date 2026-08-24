@@ -84,6 +84,8 @@ function App() {
 
   const [notifPermission, setNotifPermission] = useState(notificationPermission());
   const [notifToast, setNotifToast] = useState<string | null>(null);
+  const [notifPanelOpen, setNotifPanelOpen] = useState(false);
+  const notifPanelRef = useRef<HTMLDivElement | null>(null);
 
   const [ocrBusy, setOcrBusy] = useState(false);
   const [ocrError, setOcrError] = useState<string | null>(null);
@@ -108,6 +110,17 @@ function App() {
   function toggleProtocol(p: Protocol) {
     setEnabledProtocols((prev) => ({ ...prev, [p]: !prev[p] }));
   }
+
+  useEffect(() => {
+    if (!notifPanelOpen) return;
+    function onClickOutside(e: MouseEvent) {
+      if (notifPanelRef.current && !notifPanelRef.current.contains(e.target as Node)) {
+        setNotifPanelOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [notifPanelOpen]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -327,35 +340,60 @@ function App() {
   return (
     <div className="page">
       <header>
-        <h1>Vault Watch</h1>
+        <div className="title-row">
+          <h1>Vault Watch</h1>
+          {notificationsSupported() && (
+            <div className="notif-bell-wrap" ref={notifPanelRef}>
+              <button
+                className={`notif-bell notif-bell-${notifPermission}`}
+                onClick={() => setNotifPanelOpen((v) => !v)}
+                aria-label="Notification settings"
+                title="Notification settings"
+              >
+                🔔
+                {notifPermission === "default" && <span className="notif-bell-dot" />}
+              </button>
+              {notifPanelOpen && (
+                <div className="notif-panel">
+                  {notifPermission === "granted" && (
+                    <>
+                      <p className="hint">
+                        🔔 Browser notifications enabled — you'll get one when a watched vault drops, as
+                        long as this tab is open.
+                      </p>
+                      <button
+                        className="notif-btn"
+                        onClick={() =>
+                          sendNotification("Test notification", "This is what a vault-drop alert will look like.")
+                        }
+                      >
+                        Send test notification
+                      </button>
+                    </>
+                  )}
+                  {notifPermission === "default" && (
+                    <>
+                      <p className="hint">Get notified when a watched vault's APY or TVL drops.</p>
+                      <button className="notif-btn" onClick={enableNotifications}>
+                        Enable browser notifications
+                      </button>
+                    </>
+                  )}
+                  {notifPermission === "denied" && (
+                    <p className="hint">
+                      Notifications blocked — enable them in your browser's site settings to get alerts.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <p className="subtitle">
           Search vaults across Morpho, Yearn, Beefy, Aave, and Compound, add them to your watchlist, and see live
           APY/TVL. Rows turn red when a vault is still meaningfully down from its recent peak (data
           refreshes every 60s, kept only in this browser).
         </p>
-        {notificationsSupported() && (
-          <div className="notif-bar">
-            {notifPermission === "granted" && (
-              <>
-                <span className="hint">🔔 Browser notifications enabled — you'll get one when a watched vault drops, as long as this tab is open.</span>
-                <button
-                  className="notif-btn"
-                  onClick={() => sendNotification("Test notification", "This is what a vault-drop alert will look like.")}
-                >
-                  Send test notification
-                </button>
-              </>
-            )}
-            {notifPermission === "default" && (
-              <button className="notif-btn" onClick={enableNotifications}>
-                Enable browser notifications
-              </button>
-            )}
-            {notifPermission === "denied" && (
-              <span className="hint">Notifications blocked — enable them in your browser's site settings to get alerts.</span>
-            )}
-          </div>
-        )}
         {notifToast && <div className="notif-toast">{notifToast}</div>}
       </header>
 
