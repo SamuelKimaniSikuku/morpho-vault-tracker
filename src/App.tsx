@@ -29,6 +29,8 @@ const PROTOCOL_LABELS: Record<Protocol, string> = {
   compound: "Compound",
 };
 
+const ALL_PROTOCOLS = Object.keys(PROTOCOL_LABELS) as Protocol[];
+
 const PERFORMER_WINDOWS = [
   { label: "1h", ms: 60 * 60 * 1000 },
   { label: "3h", ms: 3 * 60 * 60 * 1000 },
@@ -141,14 +143,6 @@ function App() {
     return counts;
   }, [watchlist]);
 
-  const activeProtocolsKey = useMemo(
-    () =>
-      (Object.keys(protocolCounts) as Protocol[])
-        .filter((p) => protocolCounts[p] > 0)
-        .sort()
-        .join(","),
-    [protocolCounts]
-  );
 
   const avgApy = useMemo(() => {
     const apys = Object.values(rows)
@@ -261,16 +255,13 @@ function App() {
   }, [watchlist]);
 
   useEffect(() => {
-    const protocols = activeProtocolsKey ? (activeProtocolsKey.split(",") as Protocol[]) : [];
-    if (protocols.length === 0) return;
-
     let cancelled = false;
     async function refresh() {
-      const results = await Promise.all(protocols.map((p) => getTopVault(p)));
+      const results = await Promise.all(ALL_PROTOCOLS.map((p) => getTopVault(p)));
       if (cancelled) return;
       setTopVaults((prev) => {
         const next = { ...prev };
-        protocols.forEach((p, i) => (next[p] = results[i]));
+        ALL_PROTOCOLS.forEach((p, i) => (next[p] = results[i]));
         return next;
       });
     }
@@ -280,7 +271,7 @@ function App() {
       cancelled = true;
       clearInterval(id);
     };
-  }, [activeProtocolsKey]);
+  }, []);
 
   function sendNotification(title: string, body: string) {
     const result = fireNotification(title, body);
@@ -478,17 +469,15 @@ function App() {
       )}
 
       {(() => {
-        const visibleProtocols = (Object.keys(PROTOCOL_LABELS) as Protocol[]).filter(
-          (p) => protocolCounts[p] > 0 && enabledProtocols[p]
-        );
+        const visibleProtocols = ALL_PROTOCOLS.filter((p) => enabledProtocols[p]);
         if (visibleProtocols.length === 0) return null;
         return (
           <section className="spotlight">
-            <h2>Top vault in each project you hold</h2>
+            <h2>Top vault by project</h2>
             <p className="hint">
-              The single highest-APY vault across all of that protocol right now — not just your
-              watchlist — filtered to vaults with at least $50k TVL and a sane APY (some protocols
-              report broken numbers for tiny or reward-distorted vaults).
+              The single highest-APY vault across each supported protocol right now — including ones
+              you don't hold yet — filtered to vaults with at least $50k TVL and a sane APY (some
+              protocols report broken numbers for tiny or reward-distorted vaults).
             </p>
             <div className="spotlight-cards">
               {visibleProtocols.map((p) => {
