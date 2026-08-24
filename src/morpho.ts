@@ -1,24 +1,7 @@
+import { fuzzyMatchScore } from "./fuzzy";
+import type { VaultSummary, WatchedVault, LiveState } from "./types";
+
 const API_URL = "https://blue-api.morpho.org/graphql";
-
-export interface VaultSummary {
-  address: string;
-  chainId: number;
-  network: string;
-  name: string;
-  symbol: string;
-  version: "v1" | "v2";
-  netApyPct: number;
-  tvlUsd: number;
-}
-
-export interface WatchedVault {
-  address: string;
-  chainId: number;
-  network: string;
-  name: string;
-  symbol: string;
-  version: "v1" | "v2";
-}
 
 async function gql(query: string, variables?: Record<string, unknown>) {
   const res = await fetch(API_URL, {
@@ -56,12 +39,14 @@ async function loadV2Cache(): Promise<VaultSummary[]> {
     if (batch.length === 0) break;
     for (const it of batch) {
       items.push({
+        protocol: "morpho",
         address: it.address,
         chainId: it.chain.id,
         network: it.chain.network,
         name: it.name.trim(),
         symbol: it.symbol,
-        version: "v2",
+        badge: "V2",
+        morphoVersion: "v2",
         netApyPct: it.netApy * 100,
         tvlUsd: it.totalAssetsUsd,
       });
@@ -84,56 +69,20 @@ async function searchV1(query: string): Promise<VaultSummary[]> {
     { search: query }
   );
   return data.vaults.items.map((it: any) => ({
+    protocol: "morpho" as const,
     address: it.address,
     chainId: it.chain.id,
     network: it.chain.network,
     name: it.name.trim(),
     symbol: it.symbol,
-    version: "v1" as const,
+    badge: "V1",
+    morphoVersion: "v1" as const,
     netApyPct: (it.state?.netApy ?? 0) * 100,
     tvlUsd: it.state?.totalAssetsUsd ?? 0,
   }));
 }
 
-function levenshtein(a: string, b: string): number {
-  const dp: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
-  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
-  for (let i = 1; i <= a.length; i++) {
-    for (let j = 1; j <= b.length; j++) {
-      dp[i][j] =
-        a[i - 1] === b[j - 1]
-          ? dp[i - 1][j - 1]
-          : 1 + Math.min(dp[i - 1][j - 1], dp[i - 1][j], dp[i][j - 1]);
-    }
-  }
-  return dp[a.length][b.length];
-}
-
-// Tolerant of OCR noise: an exact substring match still wins outright, but
-// otherwise scores how many query words have a close match (typo-tolerant)
-// among the vault's own words, so a single misread character (USDC -> USDG)
-// doesn't reject an otherwise-correct match entirely.
-function fuzzyMatchScore(name: string, symbol: string, query: string): number {
-  const hay = `${name} ${symbol}`.toLowerCase();
-  if (hay.includes(query)) return 1;
-
-  const queryWords = query.split(/\s+/).filter((w) => w.length >= 2);
-  if (queryWords.length === 0) return 0;
-  const nameWords = name.toLowerCase().split(/\s+/);
-
-  let matched = 0;
-  for (const qw of queryWords) {
-    const closeEnough = nameWords.some((nw) => {
-      if (nw.includes(qw) || qw.includes(nw)) return true;
-      const maxDist = qw.length <= 4 ? 1 : 2;
-      return levenshtein(qw, nw) <= maxDist;
-    });
-    if (closeEnough) matched++;
-  }
-  return matched / queryWords.length;
-}
-
-export async function searchVaults(query: string): Promise<VaultSummary[]> {
+export async function searchMorphoVaults(query: string): Promise<VaultSummary[]> {
   const q = query.trim().toLowerCase();
   if (q.length < 2) return [];
 
@@ -156,11 +105,9 @@ export async function searchVaults(query: string): Promise<VaultSummary[]> {
   return combined.slice(0, 25);
 }
 
-export async function fetchLiveState(
-  vault: WatchedVault
-): Promise<{ netApyPct: number; tvlUsd: number } | null> {
+export async function fetchMorphoLiveState(vault: WatchedVault): Promise<LiveState | null> {
   try {
-    if (vault.version === "v2") {
+    if (vault.morphoVersion === "v2") {
       const data = await gql(
         `query($address: String!, $chainId: Int!) {
           vaultV2ByAddress(address: $address, chainId: $chainId) { netApy totalAssetsUsd }

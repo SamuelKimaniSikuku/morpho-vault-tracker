@@ -1,4 +1,4 @@
-import type { WatchedVault } from "./morpho";
+import type { WatchedVault } from "./types";
 
 export interface HistoryPoint {
   ts: number; // epoch ms
@@ -12,14 +12,34 @@ export const WINDOW_MS = 3 * 60 * 60 * 1000; // 3h peak window, mirrors status.p
 export const APY_DROP_PP = 1.0;
 export const TVL_DROP_PCT = 10.0;
 
-export function vaultKey(v: Pick<WatchedVault, "chainId" | "address">): string {
-  return `${v.chainId}:${v.address.toLowerCase()}`;
+export function vaultKey(v: Pick<WatchedVault, "protocol" | "chainId" | "address">): string {
+  return `${v.protocol}:${v.chainId}:${v.address.toLowerCase()}`;
+}
+
+// Migrates entries saved before multi-protocol support (no `protocol` field,
+// Morpho version stored as `version` instead of `morphoVersion`).
+function migrate(raw: any): WatchedVault {
+  if (raw.protocol) return raw;
+  const morphoVersion = raw.version === "v1" || raw.version === "v2" ? raw.version : "v2";
+  return {
+    protocol: "morpho",
+    address: raw.address,
+    chainId: raw.chainId,
+    network: raw.network,
+    name: raw.name,
+    symbol: raw.symbol,
+    badge: morphoVersion.toUpperCase(),
+    morphoVersion,
+  };
 }
 
 export function loadWatchlist(): WatchedVault[] {
   try {
     const raw = localStorage.getItem(WATCHLIST_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw).map(migrate);
+    saveWatchlist(parsed); // persist the upgraded shape so this only runs once
+    return parsed;
   } catch {
     return [];
   }

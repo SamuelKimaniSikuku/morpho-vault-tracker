@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { searchVaults, fetchLiveState, type VaultSummary, type WatchedVault } from "./morpho";
+import { searchVaults, fetchLiveState, type VaultSummary, type WatchedVault, type Protocol } from "./vaults";
 import {
   loadWatchlist,
   saveWatchlist,
@@ -19,6 +19,12 @@ import {
 import "./App.css";
 
 const POLL_MS = 60_000;
+
+const PROTOCOL_LABELS: Record<Protocol, string> = {
+  morpho: "Morpho",
+  yearn: "Yearn",
+  beefy: "Beefy",
+};
 
 interface LiveRow {
   vault: WatchedVault;
@@ -117,12 +123,15 @@ function App() {
 
   function addVault(v: VaultSummary) {
     const watched: WatchedVault = {
+      protocol: v.protocol,
       address: v.address,
       chainId: v.chainId,
       network: v.network,
       name: v.name,
       symbol: v.symbol,
-      version: v.version,
+      badge: v.badge,
+      morphoVersion: v.morphoVersion,
+      beefyId: v.beefyId,
     };
     const key = vaultKey(watched);
     if (watchedKeys.has(key)) return;
@@ -286,7 +295,8 @@ function App() {
                 <li key={key}>
                   <div className="result-info">
                     <span className="name">{v.name}</span>
-                    <span className="badge">{v.version}</span>
+                    <span className={`badge badge-${v.protocol}`}>{PROTOCOL_LABELS[v.protocol]}</span>
+                    <span className="badge-outline">{v.badge}</span>
                     <span className="network">{v.network}</span>
                   </div>
                   <div className="result-stats">
@@ -322,7 +332,8 @@ function App() {
                 <li key={key}>
                   <div className="result-info">
                     <span className="name">{v.name}</span>
-                    <span className="badge">{v.version}</span>
+                    <span className={`badge badge-${v.protocol}`}>{PROTOCOL_LABELS[v.protocol]}</span>
+                    <span className="badge-outline">{v.badge}</span>
                     <span className="network">{v.network}</span>
                   </div>
                   <div className="result-stats">
@@ -378,6 +389,7 @@ function App() {
             <thead>
               <tr>
                 <th>Vault</th>
+                <th>Protocol</th>
                 <th>Network</th>
                 <th className="sortable" onClick={toggleApySort}>
                   Net APY {apySortDir === "desc" ? "▼" : apySortDir === "asc" ? "▲" : "⇅"}
@@ -394,6 +406,9 @@ function App() {
                 return (
                   <tr key={key} className={row?.warn ? "warn" : ""}>
                     <td>{v.name}</td>
+                    <td>
+                      <span className={`badge badge-${v.protocol}`}>{PROTOCOL_LABELS[v.protocol]}</span>
+                    </td>
                     <td>{v.network}</td>
                     <td>
                       {row?.apy != null ? `${row.apy.toFixed(2)}%` : row?.error ? "error" : "…"}
