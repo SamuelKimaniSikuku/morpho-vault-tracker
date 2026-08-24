@@ -231,7 +231,7 @@ function App() {
         }
       }
       if (merged.length === 0) {
-        setOcrError("Read some text but couldn't match it to a known Morpho vault. Try a clearer screenshot.");
+        setOcrError("Read some text but couldn't match it to a known vault. Try a clearer screenshot.");
       } else {
         setOcrMatches(merged);
       }
@@ -246,11 +246,11 @@ function App() {
   return (
     <div className="page">
       <header>
-        <h1>Morpho Vault Tracker</h1>
+        <h1>Vault Watch</h1>
         <p className="subtitle">
-          Search any Morpho vault, add it to your watchlist, and see live APY/TVL. Rows turn red when a
-          vault is still meaningfully down from its recent peak (data refreshes every 60s, kept only in
-          this browser).
+          Search vaults across Morpho, Yearn, and Beefy, add them to your watchlist, and see live
+          APY/TVL. Rows turn red when a vault is still meaningfully down from its recent peak (data
+          refreshes every 60s, kept only in this browser).
         </p>
         {notificationsSupported() && (
           <div className="notif-bar">
@@ -281,7 +281,7 @@ function App() {
       <section className="search">
         <input
           type="text"
-          placeholder="Search vault name (e.g. Steakhouse, Gauntlet, wARS)…"
+          placeholder="Search vault name (e.g. Steakhouse, Gauntlet, Curve, Beefy)…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -316,7 +316,7 @@ function App() {
       <section className="screenshot">
         <h2>Or add vaults from a screenshot</h2>
         <p className="hint">
-          Upload a screenshot of a Morpho vault or portfolio page (like the Morpho app's own UI) and
+          Upload a screenshot of a vault or portfolio page (Morpho, Yearn, Beefy — any of them) and
           this will try to read the vault names off it and suggest matches. Runs entirely in your
           browser — the image is never uploaded anywhere.
         </p>
@@ -432,8 +432,8 @@ function App() {
       </section>
 
       <footer>
-        Data from Morpho's public API. Nothing here is investment advice — this is a monitoring tool
-        only. Your watchlist is stored locally in your browser, not on any server.
+        Data from Morpho, Yearn, and Beefy's public APIs. Nothing here is investment advice — this is a
+        monitoring tool only. Your watchlist is stored locally in your browser, not on any server.
       </footer>
     </div>
   );
