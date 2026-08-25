@@ -599,6 +599,37 @@ header h1 {
   color: var(--text);
 }
 
+.watchlist-tools {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.tool-btn {
+  padding: 0.25rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+.tool-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.sparkline {
+  display: block;
+}
+
+.sparkline-empty {
+  color: var(--text-faint);
+  font-size: 0.8rem;
+}
+
 .protocol-filter {
   display: flex;
   align-items: center;

@@ -20,6 +20,8 @@ import {
   fireNotification,
 } from "./notify";
 import { getInitialTheme, applyTheme, type Theme } from "./theme";
+import { Sparkline } from "./Sparkline";
+import { exportWatchlist, parseAndMerge } from "./transfer";
 import "./App.css";
 
 const POLL_MS = 60_000;
@@ -119,6 +121,28 @@ function App() {
   const [ocrBusy, setOcrBusy] = useState(false);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [ocrMatches, setOcrMatches] = useState<VaultSummary[]>([]);
+
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (importInputRef.current) importInputRef.current.value = "";
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const result = parseAndMerge(text, watchlist);
+      setWatchlist(result.merged);
+      saveWatchlist(result.merged);
+      const parts = [`${result.added} vault${result.added === 1 ? "" : "s"} added`];
+      if (result.skippedDuplicates > 0) parts.push(`${result.skippedDuplicates} already in your list`);
+      if (result.skippedInvalid > 0) parts.push(`${result.skippedInvalid} invalid entries skipped`);
+      setImportStatus(`✅ Import done: ${parts.join(", ")}.`);
+    } catch (err) {
+      setImportStatus(`❌ ${err instanceof Error ? err.message : "Import failed."}`);
+    }
+    setTimeout(() => setImportStatus(null), 8000);
+  }
 
   const ocrGroups = useMemo(() => groupVaults(ocrMatches), [ocrMatches]);
   const resultGroups = useMemo(() => groupVaults(results), [results]);
@@ -662,13 +686,31 @@ function App() {
       <section className="watchlist">
         <div className="watchlist-header">
           <h2>Your watchlist</h2>
-          {avgApy != null && (
-            <span className="avg-apy">
-              Average Net APY: <strong>{avgApy.toFixed(2)}%</strong> across {filteredWatchlist.length} vault
-              {filteredWatchlist.length === 1 ? "" : "s"}
-            </span>
-          )}
+          <div className="watchlist-tools">
+            {avgApy != null && (
+              <span className="avg-apy">
+                Average Net APY: <strong>{avgApy.toFixed(2)}%</strong> across {filteredWatchlist.length} vault
+                {filteredWatchlist.length === 1 ? "" : "s"}
+              </span>
+            )}
+            {watchlist.length > 0 && (
+              <button className="tool-btn" onClick={() => exportWatchlist(watchlist)}>
+                Export
+              </button>
+            )}
+            <button className="tool-btn" onClick={() => importInputRef.current?.click()}>
+              Import
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              onChange={handleImportFile}
+              style={{ display: "none" }}
+            />
+          </div>
         </div>
+        {importStatus && <p className="hint">{importStatus}</p>}
         {watchlist.length > 0 && (
           <div className="protocol-filter">
             <span className="filter-label">Filter by project:</span>
@@ -700,6 +742,7 @@ function App() {
                 <th className="sortable" onClick={toggleApySort}>
                   Net APY {apySortDir === "desc" ? "▼" : apySortDir === "asc" ? "▲" : "⇅"}
                 </th>
+                <th>Trend</th>
                 <th>TVL</th>
                 <th>Last checked</th>
                 <th></th>
@@ -724,6 +767,9 @@ function App() {
                       {row?.improved && row.troughApy != null && (
                         <span className="up-note"> ↑ from {row.troughApy.toFixed(2)}% low</span>
                       )}
+                    </td>
+                    <td>
+                      <Sparkline vaultKey={key} updatedAt={row?.lastChecked ?? null} />
                     </td>
                     <td>{row?.tvl != null ? `$${row.tvl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "…"}</td>
                     <td>{row?.lastChecked ? new Date(row.lastChecked).toLocaleTimeString() : "…"}</td>
