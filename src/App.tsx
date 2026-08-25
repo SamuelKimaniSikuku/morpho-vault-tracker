@@ -678,6 +678,7 @@ function App() {
           <p className="hint">No vaults match the selected filter.</p>
         )}
         {filteredWatchlist.length > 0 && (
+          <div className="table-scroll">
           <table>
             <thead>
               <tr>
@@ -724,6 +725,7 @@ function App() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </section>
 
