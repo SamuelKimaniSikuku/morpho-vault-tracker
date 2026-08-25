@@ -1,0 +1,48 @@
+name: Vault alerts
+
+on:
+  schedule:
+    # Every 15 minutes. GitHub may delay scheduled runs by a few minutes
+    # under load - fine for this use case.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vault-alerts
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # actions/cache entries are immutable, so use a unique save key per run
+      # and restore the most recent one by prefix.
+      - name: Restore previous state
+        uses: actions/cache/restore@v4
+        with:
+          path: cloud/state
+          key: vault-state-${{ github.run_id }}
+          restore-keys: |
+            vault-state-
+
+      - name: Check vaults and send alerts
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: node cloud/vault-alert.mjs
+
+      - name: Save state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: cloud/state
+          key: vault-state-${{ github.run_id }}

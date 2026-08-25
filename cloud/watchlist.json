@@ -1,0 +1,19 @@
+{
+  "app": "vaultwatch",
+  "version": 1,
+  "note": "Vaults the cloud alert workflow watches. Replace with an Export file from vaultwatch.xyz anytime - same format.",
+  "vaults": [
+    { "protocol": "morpho", "address": "0xb5ce3CA2C774b72955C25875022FdD91f7a7B938", "chainId": 1, "network": "Ethereum", "name": "KPK wARS Yield", "symbol": "KPK_wARS_Yield", "badge": "V2", "morphoVersion": "v2" },
+    { "protocol": "morpho", "address": "0x050cE30b927Da55177A4914EC73480238BAD56f0", "chainId": 8453, "network": "Base", "name": "Gauntlet USDC Prime", "symbol": "gtusdcp", "badge": "V2", "morphoVersion": "v2" },
+    { "protocol": "morpho", "address": "0x9a1D6bd5b8642C41F25e0958129B85f8E1176F3e", "chainId": 1, "network": "Ethereum", "name": "Gauntlet USDC Frontier", "symbol": "gtusdcf", "badge": "V2", "morphoVersion": "v2" },
+    { "protocol": "morpho", "address": "0xb576765fB15505433aF24FEe2c0325895C559FB2", "chainId": 1, "network": "Ethereum", "name": "Paypal USD Main", "symbol": "senPYUSDmain", "badge": "V2", "morphoVersion": "v2" },
+    { "protocol": "morpho", "address": "0xbeef0e0834849aCC03f0089F01f4F1Eeb06873C9", "chainId": 8453, "network": "Base", "name": "Steakhouse Prime USDC", "symbol": "steakUSDC", "badge": "V2", "morphoVersion": "v2" },
+    { "protocol": "morpho", "address": "0xbeef0046fcab1dE47E41fB75BB3dC4Dfc94108E3", "chainId": 1, "network": "Ethereum", "name": "Steakhouse Prime ETH", "symbol": "steakETH", "badge": "V2", "morphoVersion": "v2" },
+    { "protocol": "morpho", "address": "0xbeef0C075Da5D01112AE5cF34d257074fB5DDB2f", "chainId": 1, "network": "Ethereum", "name": "Steakhouse Prime EURCV", "symbol": "steakEURCV", "badge": "V2", "morphoVersion": "v2" },
+    { "protocol": "morpho", "address": "0x7BfA7C4f149E7415b73bdeDfe609237e29CBF34A", "chainId": 8453, "network": "Base", "name": "Spark USDC Vault", "symbol": "sparkUSDC", "badge": "V1", "morphoVersion": "v1" },
+    { "protocol": "morpho", "address": "0x132E6C9C33A62D7727cd359b1f51e5B566E485Eb", "chainId": 1, "network": "Ethereum", "name": "Resolv USDC", "symbol": "resolvUSDC", "badge": "V1", "morphoVersion": "v1" },
+    { "protocol": "morpho", "address": "0xFeFeC33668E22677c4762d0853d56245a800ff08", "chainId": 8453, "network": "Base", "name": "Gauntlet WETH Balanced", "symbol": "gtwethb", "badge": "V2", "morphoVersion": "v2" },
+    { "protocol": "morpho", "address": "0xbeef00f0A818894a2Cf111644A5098421611100E", "chainId": 8453, "network": "Base", "name": "Steakhouse Prime ETH", "symbol": "steakETH", "badge": "V2", "morphoVersion": "v2" },
+    { "protocol": "morpho", "address": "0xbeeff7aE5E00Aae3Db302e4B0d8C883810a58100", "chainId": 8453, "network": "Base", "name": "Steakhouse High Yield USDC", "symbol": "bbqUSDC", "badge": "V2", "morphoVersion": "v2" }
+  ]
+}
