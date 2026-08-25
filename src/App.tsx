@@ -355,12 +355,18 @@ function App() {
 
   async function handleScreenshot(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      setOcrError("No image came through from the picker — try picking the photo again.");
+      return;
+    }
     setOcrBusy(true);
     setOcrError(null);
     setOcrMatches([]);
     try {
-      const candidates = await extractVaultCandidates(file);
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 30_000)
+      );
+      const candidates = await Promise.race([extractVaultCandidates(file), timeout]);
       if (candidates.length === 0) {
         setOcrError("Couldn't read any vault-like text from that image. Try a clearer screenshot.");
         return;
@@ -381,8 +387,14 @@ function App() {
       } else {
         setOcrMatches(merged);
       }
-    } catch {
-      setOcrError("OCR failed on that image — try a different screenshot.");
+    } catch (err) {
+      console.error("Screenshot OCR failed:", err);
+      const timedOut = err instanceof Error && err.message === "timeout";
+      setOcrError(
+        timedOut
+          ? "This is taking too long — text recognition needs to download some data on first use, so check your connection and try again."
+          : "OCR failed on that image — try a different screenshot."
+      );
     } finally {
       setOcrBusy(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
