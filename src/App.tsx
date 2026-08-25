@@ -788,9 +788,16 @@ function App() {
       </section>
 
       <footer>
-        Data from Morpho, Yearn, Beefy, and DefiLlama (Aave, Compound) public APIs. Nothing here is
-        investment advice — this is a monitoring tool only. Your watchlist is stored locally in your
-        browser, not on any server.
+        <p>
+          Data from Morpho, Yearn, Beefy, and DefiLlama (Aave, Compound) public APIs. Nothing here is
+          investment advice — this is a monitoring tool only. Your watchlist is stored locally in your
+          browser, not on any server.
+        </p>
+        <p className="footer-social">
+          <a href="https://x.com/vaultwatchxyz" target="_blank" rel="noopener noreferrer">
+            𝕏 @vaultwatchxyz
+          </a>
+        </p>
       </footer>
     </div>
   );

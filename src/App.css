@@ -741,3 +741,16 @@ footer {
   border-top: 1px solid var(--border);
   padding-top: 1rem;
 }
+
+footer p {
+  margin: 0 0 0.5rem;
+}
+
+.footer-social a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.footer-social a:hover {
+  color: var(--text);
+}
