@@ -572,6 +572,65 @@ header h1 {
   cursor: default;
 }
 
+.vault-news {
+  margin-top: 2rem;
+}
+
+.vault-news h2 {
+  font-size: 1.1rem;
+  margin-bottom: 0.3rem;
+}
+
+.vault-news > .hint {
+  max-width: 640px;
+  margin-bottom: 0.75rem;
+}
+
+.news-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.news-item {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  font-size: 0.85rem;
+}
+
+.news-item:last-child {
+  border-bottom: none;
+}
+
+.news-arrow {
+  font-size: 0.75rem;
+}
+
+.news-up .news-arrow {
+  color: var(--success);
+}
+
+.news-down .news-arrow {
+  color: var(--danger);
+}
+
+.news-headline {
+  font-weight: 500;
+}
+
+.news-detail {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+}
+
 .watchlist {
   margin-top: 2.5rem;
 }

@@ -22,6 +22,7 @@ import {
 import { getInitialTheme, applyTheme, type Theme } from "./theme";
 import { Sparkline } from "./Sparkline";
 import { exportWatchlist, parseAndMerge } from "./transfer";
+import { getVaultNews, type NewsItem } from "./news";
 import "./App.css";
 
 const POLL_MS = 60_000;
@@ -158,6 +159,25 @@ function App() {
     compound: true,
   });
   const [topVaults, setTopVaults] = useState<Partial<Record<Protocol, VaultSummary | null>>>({});
+  const [news, setNews] = useState<NewsItem[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function refreshNews() {
+      try {
+        const items = await getVaultNews();
+        if (!cancelled) setNews(items);
+      } catch {
+        if (!cancelled) setNews([]);
+      }
+    }
+    refreshNews();
+    const id = setInterval(refreshNews, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
 
   function toggleApySort() {
     setApySortDir((prev) => (prev === "desc" ? "asc" : "desc"));
@@ -682,6 +702,26 @@ function App() {
           </section>
         );
       })()}
+
+      {news !== null && news.length > 0 && (
+        <section className="vault-news">
+          <h2>📰 Vault news</h2>
+          <p className="hint">
+            The biggest real yield moves of the last 24 hours across Morpho, Yearn, Beefy, Aave, and
+            Compound — computed live from market data, vaults with at least $1M TVL only.
+          </p>
+          <ul className="news-list">
+            {news.map((item) => (
+              <li key={item.id} className={`news-item news-${item.direction}`}>
+                <span className="news-arrow">{item.direction === "up" ? "▲" : "▼"}</span>
+                <span className={`badge badge-${item.protocol}`}>{PROTOCOL_LABELS[item.protocol]}</span>
+                <span className="news-headline">{item.headline}</span>
+                <span className="news-detail">{item.detail}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="watchlist">
         <div className="watchlist-header">

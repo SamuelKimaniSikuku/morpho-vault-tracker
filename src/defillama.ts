@@ -4,6 +4,8 @@ export interface LlamaPool {
   symbol: string;
   tvlUsd: number;
   apy: number | null; // already a percentage, e.g. 5.31 means 5.31%
+  apyPct1D?: number | null; // 24h APY change in percentage points
+  apyPct7D?: number | null; // 7d APY change in percentage points
   pool: string; // DefiLlama's own UUID for this pool - not an on-chain address
   poolMeta?: string | null;
 }
