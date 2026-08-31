@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Vault Watch</h1>
+      <div class="header-actions">
+        <button id="refresh" title="Check now">↻</button>
+        <a href="https://vaultwatch.xyz" target="_blank" rel="noopener noreferrer" title="Open vaultwatch.xyz">↗</a>
+      </div>
+    </header>
+
+    <div id="empty" class="empty" hidden>
+      <p>No vaults yet.</p>
+      <p class="hint">
+        Export your watchlist from
+        <a href="https://vaultwatch.xyz" target="_blank" rel="noopener noreferrer">vaultwatch.xyz</a>
+        and import the file below. Alerts fire every 5 minutes while Chrome is open — no tab needed.
+      </p>
+    </div>
+
+    <ul id="list" class="list"></ul>
+
+    <p id="status" class="status" hidden></p>
+
+    <footer>
+      <span id="last-check" class="last-check"></span>
+      <div class="footer-actions">
+        <button id="import">Import</button>
+        <button id="export">Export</button>
+      </div>
+      <input id="import-file" type="file" accept="application/json,.json" hidden />
+    </footer>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

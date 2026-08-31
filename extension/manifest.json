@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Vault Watch",
+  "version": "1.0.0",
+  "description": "Track DeFi vault yields across Morpho, Yearn, Beefy, Aave, and Compound. Alerts when APY or TVL moves - no wallet, no account.",
+  "permissions": ["storage", "alarms", "notifications"],
+  "host_permissions": [
+    "https://blue-api.morpho.org/*",
+    "https://ydaemon.yearn.fi/*",
+    "https://api.beefy.finance/*",
+    "https://yields.llama.fi/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

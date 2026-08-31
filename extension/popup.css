@@ -1,0 +1,183 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  width: 360px;
+  margin: 0;
+  font: 13px/1.4 system-ui, "Segoe UI", Roboto, sans-serif;
+  background: #0d0d0d;
+  color: #eaeaea;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+h1 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.header-actions button,
+.header-actions a {
+  width: 1.7rem;
+  height: 1.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #161616;
+  color: #ccc;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.header-actions button:hover,
+.header-actions a:hover {
+  border-color: #5b8def;
+}
+
+.empty {
+  padding: 1rem 0.9rem;
+}
+
+.empty p {
+  margin: 0 0 0.5rem;
+}
+
+.hint {
+  color: #888;
+  font-size: 0.78rem;
+}
+
+.hint a {
+  color: #5b8def;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.9rem;
+  border-bottom: 1px solid #1e1e1e;
+}
+
+.vault-info {
+  min-width: 0;
+}
+
+.vault-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vault-meta {
+  color: #888;
+  font-size: 0.72rem;
+}
+
+.vault-stats {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.vault-apy {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.vault-apy.up {
+  color: #5ac882;
+}
+
+.vault-apy.down {
+  color: #ff5c5c;
+}
+
+.vault-tvl {
+  color: #888;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.remove {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.2rem;
+}
+
+.remove:hover {
+  color: #ff5c5c;
+}
+
+.status {
+  margin: 0;
+  padding: 0.5rem 0.9rem;
+  color: #888;
+  font-size: 0.78rem;
+}
+
+footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.9rem;
+  border-top: 1px solid #2a2a2a;
+}
+
+.last-check {
+  color: #777;
+  font-size: 0.72rem;
+}
+
+.footer-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+footer button {
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #161616;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+footer button:hover {
+  border-color: #5b8def;
+}
