@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    width: 1280px; height: 800px; overflow: hidden;
+    font: 16px/1.5 system-ui, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(1200px 700px at 20% 10%, #1a2033 0%, #0d0d0f 60%);
+    color: #eaeaea;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 90px;
+  }
+  .pitch { max-width: 560px; }
+  .brand { display: flex; align-items: center; gap: 18px; margin-bottom: 34px; }
+  .brand img { width: 72px; height: 72px; border-radius: 16px; }
+  .brand h1 { font-size: 44px; font-weight: 700; letter-spacing: -0.5px; }
+  .tagline { font-size: 24px; color: #b9c2d4; margin-bottom: 36px; line-height: 1.45; }
+  .points { list-style: none; display: flex; flex-direction: column; gap: 18px; font-size: 19px; color: #d7dbe4; }
+  .points li { display: flex; gap: 12px; align-items: baseline; }
+  .points .dot { color: #5ac882; font-size: 16px; }
+  .site { margin-top: 40px; font-size: 18px; color: #5b8def; font-weight: 600; }
+
+  .popup {
+    width: 380px; background: #0d0d0d; border: 1px solid #2c2c30;
+    border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    overflow: hidden; flex-shrink: 0;
+  }
+  .popup header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px; border-bottom: 1px solid #2a2a2a;
+  }
+  .popup header h2 { font-size: 16px; }
+  .hbtns { display: flex; gap: 8px; }
+  .hbtn {
+    width: 28px; height: 28px; border-radius: 7px; border: 1px solid #333;
+    background: #161616; color: #ccc; display: flex; align-items: center;
+    justify-content: center; font-size: 14px;
+  }
+  .row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 11px 16px; border-bottom: 1px solid #1e1e1e; gap: 10px;
+  }
+  .vname { font-weight: 500; font-size: 14px; }
+  .vmeta { color: #888; font-size: 11.5px; }
+  .vstats { text-align: right; }
+  .vapy { font-weight: 600; font-variant-numeric: tabular-nums; font-size: 14px; }
+  .vapy.up { color: #5ac882; }
+  .vapy.down { color: #ff5c5c; }
+  .vtvl { color: #888; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .popup footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 11px 16px; border-top: 1px solid #2a2a2a;
+  }
+  .lastcheck { color: #777; font-size: 11.5px; }
+  .fbtns { display: flex; gap: 7px; }
+  .fbtn {
+    padding: 5px 13px; border-radius: 7px; border: 1px solid #333;
+    background: #161616; color: #ccc; font-size: 12.5px;
+  }
+</style>
+</head>
+<body>
+  <div class="pitch">
+    <div class="brand">
+      <img src="../extension/icons/icon128.png" alt="" />
+      <h1>Vault Watch</h1>
+    </div>
+    <p class="tagline">DeFi vault yields, watched for you.<br/>Alerts the moment APY or TVL moves.</p>
+    <ul class="points">
+      <li><span class="dot">●</span> Morpho · Yearn · Beefy · Aave · Compound</li>
+      <li><span class="dot">●</span> Checked every 5 minutes — no tab needed</li>
+      <li><span class="dot">●</span> No wallet. No account. No data collected.</li>
+    </ul>
+    <p class="site">vaultwatch.xyz</p>
+  </div>
+
+  <div class="popup">
+    <header><h2>Vault Watch</h2><div class="hbtns"><div class="hbtn">↻</div><div class="hbtn">↗</div></div></header>
+    <div class="row"><div><div class="vname">KPK wARS Yield</div><div class="vmeta">morpho · Ethereum</div></div><div class="vstats"><div class="vapy up">22.50%</div><div class="vtvl">$5.8M</div></div></div>
+    <div class="row"><div><div class="vname">Gauntlet USDC Prime</div><div class="vmeta">morpho · Base</div></div><div class="vstats"><div class="vapy">4.63%</div><div class="vtvl">$86.5M</div></div></div>
+    <div class="row"><div><div class="vname">Gauntlet USDC Frontier</div><div class="vmeta">morpho · Ethereum</div></div><div class="vstats"><div class="vapy">5.27%</div><div class="vtvl">$27.3M</div></div></div>
+    <div class="row"><div><div class="vname">Paypal USD Main</div><div class="vmeta">morpho · Ethereum</div></div><div class="vstats"><div class="vapy">5.32%</div><div class="vtvl">$388.1M</div></div></div>
+    <div class="row"><div><div class="vname">Steakhouse Prime USDC</div><div class="vmeta">morpho · Base</div></div><div class="vstats"><div class="vapy">4.63%</div><div class="vtvl">$449.2M</div></div></div>
+    <div class="row"><div><div class="vname">Steakhouse Prime ETH</div><div class="vmeta">morpho · Ethereum</div></div><div class="vstats"><div class="vapy down">1.63%</div><div class="vtvl">$20.1M</div></div></div>
+    <footer><span class="lastcheck">checked 10:32:36</span><div class="fbtns"><div class="fbtn">Import</div><div class="fbtn">Export</div></div></footer>
+  </div>
+</body>
+</html>
