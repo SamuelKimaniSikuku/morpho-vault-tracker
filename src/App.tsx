@@ -23,6 +23,7 @@ import { getInitialTheme, applyTheme, type Theme } from "./theme";
 import { Sparkline } from "./Sparkline";
 import { exportWatchlist, parseAndMerge } from "./transfer";
 import { getVaultNews, type NewsItem } from "./news";
+import { BlogSection } from "./BlogSection";
 import "./App.css";
 
 const POLL_MS = 60_000;
@@ -826,6 +827,8 @@ function App() {
           </div>
         )}
       </section>
+
+      <BlogSection />
 
       <footer>
         <p>

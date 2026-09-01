@@ -792,6 +792,147 @@ tr.improved td {
   color: var(--text);
 }
 
+.blog-section {
+  margin-top: 2.5rem;
+}
+
+.blog-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.blog-header h2 {
+  font-size: 1.2rem;
+}
+
+.blog-all {
+  font-size: 0.85rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.blog-post {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  padding: 1.4rem 1.6rem;
+}
+
+.blog-tag {
+  font-size: 0.68rem;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.blog-post h3 {
+  font-size: 1.35rem;
+  margin: 0.5rem 0 0.6rem;
+}
+
+.blog-lede {
+  color: var(--text-muted);
+  line-height: 1.55;
+  max-width: 640px;
+}
+
+.blog-toggle {
+  margin-top: 0.9rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.blog-toggle:hover {
+  border-color: var(--accent);
+}
+
+.blog-body {
+  margin-top: 1.2rem;
+  max-width: 680px;
+  line-height: 1.6;
+}
+
+.blog-body h4 {
+  margin: 1.6rem 0 0.6rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.blog-body p,
+.blog-body li {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.blog-body strong {
+  color: var(--text);
+}
+
+.blog-idea {
+  display: flex;
+  gap: 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 1rem 1.2rem;
+}
+
+.blog-idea-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+  white-space: nowrap;
+  padding-top: 0.25rem;
+}
+
+.blog-steps,
+.blog-fine {
+  margin: 0;
+  padding-left: 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.blog-closing {
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 1.1rem 1.3rem;
+  margin-top: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.blog-disclaimer {
+  margin-top: 1rem;
+  font-size: 0.78rem !important;
+  color: var(--text-faint) !important;
+}
+
+.blog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.blog-actions a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
 footer {
   margin-top: 3rem;
   color: var(--text-faint);
