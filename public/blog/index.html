@@ -13,8 +13,8 @@
     * { box-sizing: border-box; margin: 0; }
     body {
       font: 17px/1.65 Georgia, "Times New Roman", serif;
-      background: #0b0b10;
-      color: #e8e8ee;
+      background: var(--bg);
+      color: var(--text);
       padding: 0 1.25rem 5rem;
     }
     .wrap { max-width: 860px; margin: 0 auto; }
@@ -26,7 +26,7 @@
     }
     .topbar a { color: var(--muted); text-decoration: none; }
     .topbar a:hover { color: #e8e8ee; }
-    h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); line-height: 1.1; font-weight: 500; margin-bottom: 1rem; }
+    h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); line-height: 1.1; font-weight: 500; margin-bottom: 1rem; color: var(--head); }
     .lede { font-size: 1.15rem; color: var(--text2); max-width: 640px; margin-bottom: 3rem; }
     .post {
       display: block; text-decoration: none; color: inherit;
@@ -35,7 +35,7 @@
     }
     .post:hover { border-color: var(--accent-border); }
     .post .tag { font: 11px/1 system-ui, sans-serif; letter-spacing: 0.2em; color: var(--accent); }
-    .post h2 { font-size: 1.6rem; font-weight: 500; margin: 0.6rem 0 0.5rem; }
+    .post h2 { font-size: 1.6rem; font-weight: 500; margin: 0.6rem 0 0.5rem; color: var(--head); }
     .post p { color: var(--text2); font-size: 0.98rem; }
     .footer {
       margin-top: 3rem; border-top: 1px solid var(--border); padding-top: 1rem;
