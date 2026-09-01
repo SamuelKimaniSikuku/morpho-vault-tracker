@@ -1,11 +1,7 @@
-import { useState } from "react";
-
 // Blog posts rendered natively inside the app (site theme, light/dark aware).
 // Each post also links out to its designed standalone explainer page and PDF.
 
 export function BlogSection() {
-  const [open, setOpen] = useState(false);
-
   return (
     <section className="blog-section" id="blog">
       <div className="blog-header">
@@ -21,14 +17,7 @@ export function BlogSection() {
           hand.</strong>
         </p>
 
-        {!open && (
-          <button className="blog-toggle" onClick={() => setOpen(true)}>
-            Read the full post ▾
-          </button>
-        )}
-
-        {open && (
-          <div className="blog-body">
+        <div className="blog-body">
             <div className="blog-idea">
               <span className="blog-idea-label">THE IDEA</span>
               <p>
@@ -99,14 +88,10 @@ export function BlogSection() {
             </div>
 
             <p className="blog-disclaimer">A plain-language explainer · not investment advice</p>
-
-            <button className="blog-toggle" onClick={() => setOpen(false)}>
-              Collapse ▴
-            </button>
           </div>
-        )}
 
         <div className="blog-actions">
+          <a href="/blog/the-exit-thats-always-open.html">Open the designed explainer ↗</a>
           <a href="/blog/the-exit-thats-always-open.pdf" download>
             📄 Download this post as a PDF
           </a>
