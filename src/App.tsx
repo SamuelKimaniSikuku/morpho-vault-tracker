@@ -834,9 +834,13 @@ function App() {
           browser, not on any server.
         </p>
         <p className="footer-social">
+          <a href="/blog/">📖 Explainers</a>
+          {" · "}
           <a href="https://x.com/vaultwatchxyz" target="_blank" rel="noopener noreferrer">
             𝕏 @vaultwatchxyz
           </a>
+          {" · "}
+          <a href="/privacy.html">Privacy</a>
         </p>
       </footer>
     </div>
