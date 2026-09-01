@@ -4,32 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>The exit that's always open — Vault Watch Blog</title>
-  <meta name="description" content="Why you can always leave a Morpho vault — even when the vault has no cash on hand. A plain-language look at in-kind redemptions." />
   <style>
     * { box-sizing: border-box; margin: 0; }
-    body {
-      font: 18px/1.75 Georgia, "Times New Roman", serif;
-      background: #0b0b10; color: #dcdce4;
-      padding: 0 1.25rem 5rem;
-    }
+    body { font: 18px/1.7 Georgia, serif; background: #0b0b10; color: #dcdce4; padding: 0 1.25rem 5rem; }
     .wrap { max-width: 680px; margin: 0 auto; }
-    .topbar {
-      padding: 1.2rem 0; margin-bottom: 3rem;
-      border-bottom: 1px solid #26262e;
-      font: 12px/1 system-ui, sans-serif; letter-spacing: 0.18em;
-    }
+    .topbar { padding: 1.2rem 0; margin-bottom: 2.5rem; border-bottom: 1px solid #26262e; font: 12px/1 system-ui, sans-serif; letter-spacing: 0.18em; }
     .topbar a { color: #9a9ab0; text-decoration: none; }
-    .topbar a:hover { color: #e8e8ee; }
-    h1 { font-size: clamp(2rem, 5.5vw, 2.9rem); line-height: 1.15; font-weight: 500; color: #f2f2f7; margin-bottom: 0.8rem; }
-    .meta { font: 13px/1 system-ui, sans-serif; color: #7a7a8e; margin-bottom: 2.5rem; }
-    h2 { font-size: 1.45rem; font-weight: 500; color: #f2f2f7; margin: 2.6rem 0 0.9rem; }
-    p { margin-bottom: 1.3rem; }
+    h1 { font-size: clamp(2rem, 5.5vw, 2.9rem); line-height: 1.15; font-weight: 500; color: #f2f2f7; margin-bottom: 1.4rem; }
+    h2 { font-size: 1.35rem; font-weight: 500; color: #f2f2f7; margin: 2.4rem 0 0.9rem; }
+    p { margin-bottom: 1.2rem; }
     strong { color: #f2f2f7; }
-    em { color: #eaeaf2; }
-    .footer {
-      margin-top: 3.5rem; border-top: 1px solid #26262e; padding-top: 1.2rem;
-      font: 13px/1.6 system-ui, sans-serif; color: #7a7a8e;
-    }
+    .footer { margin-top: 3rem; border-top: 1px solid #26262e; padding-top: 1.2rem; font: 13px/1.6 system-ui, sans-serif; color: #7a7a8e; }
     .footer a { color: #8b8bf0; text-decoration: none; }
   </style>
 </head>
@@ -37,124 +22,47 @@
   <div class="wrap">
     <div class="topbar"><a href="/blog/">← VAULTWATCH · BLOG</a></div>
 
-    <h1>The exit that&rsquo;s always open</h1>
-    <p class="meta">Morpho vaults &middot; A plain-language explainer</p>
+    <h1>The exit that&rsquo;s always open.</h1>
 
-    <p>
-      When you put your money into a DeFi vault, one fear sits above all the others:
-      <em>what if I can&rsquo;t get it back?</em> It&rsquo;s a reasonable fear. The history of finance
-      &mdash; traditional and crypto alike &mdash; is full of stories that end with a frozen withdrawal
-      button and a crowd of depositors locked outside.
-    </p>
+    <p>The #1 fear when you lend your money out: <em>&ldquo;What if I can&rsquo;t get it back?&rdquo;</em> Morpho vaults are built so that <strong>you can always leave &mdash; even when the vault has no cash on hand.</strong></p>
 
-    <p>
-      Morpho vaults were designed with that fear in mind. They are built so that
-      <strong> you can always leave &mdash; even when the vault has no cash on hand.</strong>
-      This post explains how that works, in plain language.
-    </p>
+    <h2>The idea</h2>
 
-    <h2>The problem: your money is busy</h2>
+    <p>If there&rsquo;s no cash to pay you out, you take <strong>the investments themselves</strong> instead &mdash; your slice, straight into your own wallet. No manager to ask. No waiting. Nobody can say no.</p>
 
-    <p>
-      A vault earns yield by putting deposits to work. Your money isn&rsquo;t sitting in a drawer
-      waiting for you &mdash; it&rsquo;s lent out across markets, which is exactly why it earns anything
-      at all. Most of the time this is invisible: when you withdraw, the vault simply pays you from
-      the cash it keeps available, and life goes on.
-    </p>
+    <h2>How leaving works</h2>
 
-    <p>
-      But what happens on the day the vault&rsquo;s cash is <em>all</em> lent out? In most systems,
-      the answer is: you wait. You wait for loans to be repaid, for a manager to free up funds, for
-      someone, somewhere, to press a button. That waiting is where trust breaks down.
-    </p>
+    <p><strong>1. You want out</strong><br />
+    The vault&rsquo;s cash is all lent out and earning. Instead of waiting, you press the emergency exit.</p>
 
-    <h2>The idea: take the investments instead</h2>
+    <p><strong>2. The system covers the gap</strong><br />
+    Behind the scenes, the missing cash is borrowed and repaid in the same instant &mdash; you never owe anything.</p>
 
-    <p>
-      Morpho&rsquo;s answer is called an <strong>in-kind redemption</strong>, and the idea is simple:
-      if there&rsquo;s no cash to pay you out, you take the investments themselves instead. Your slice
-      of what the vault owns, transferred straight into your own wallet. No manager to ask. No
-      waiting. Nobody can say no.
-    </p>
+    <p><strong>3. You trade your receipt</strong><br />
+    Your vault shares are swapped for your slice of what the vault owns. This is automatic &mdash; no one approves it.</p>
 
-    <p>Here is what actually happens when you use it:</p>
+    <p><strong>4. You walk away with it</strong><br />
+    Your money&rsquo;s investments now sit in your own wallet. Keep them, or cash out when you&rsquo;re ready.</p>
 
-    <p>
-      <strong>First, you decide you want out.</strong> The vault&rsquo;s cash is fully deployed and
-      earning. Instead of waiting for liquidity to come back, you press the emergency exit.
-    </p>
-
-    <p>
-      <strong>Second, the system covers the gap.</strong> Behind the scenes, the missing cash is
-      borrowed and repaid within the same instant &mdash; a technical maneuver that means you never
-      actually owe anything. It exists purely to make the next step possible.
-    </p>
-
-    <p>
-      <strong>Third, you trade your receipt.</strong> Your vault shares &mdash; the receipt that proves
-      what you own &mdash; are swapped for your proportional slice of the vault&rsquo;s actual holdings.
-      This happens automatically. No one reviews it, and no one approves it.
-    </p>
-
-    <p>
-      <strong>Finally, you walk away with it.</strong> The investments that were earning yield for you
-      inside the vault now sit in your own wallet. You can keep them and keep earning, or convert them
-      to cash whenever you&rsquo;re ready.
-    </p>
-
-    <p>
-      Notice what never happened in that story: at no point did you need anyone&rsquo;s permission.
-      <strong> The exit is built into the vault itself &mdash; and nobody can ever remove it.</strong>
-    </p>
+    <p>At no point did you need anyone&rsquo;s permission. <strong>The exit is built into the vault itself &mdash; and nobody can ever remove it.</strong></p>
 
     <h2>The fine print</h2>
 
-    <p>
-      Like any honest explainer, this one has caveats, and they&rsquo;re worth knowing before you rely
-      on the mechanism.
-    </p>
+    <p><strong>A small fee &mdash; up to 2%.</strong> It keeps the emergency exit from being abused. Slightly costly, never impossible.</p>
 
-    <p>
-      <strong>There&rsquo;s a small fee &mdash; up to 2%.</strong> The emergency exit charges a toll so
-      that people don&rsquo;t abuse it as a everyday shortcut. Leaving this way is slightly costly, but
-      never impossible &mdash; and that&rsquo;s the point.
-    </p>
+    <p><strong>A few vaults are members-only.</strong> On those, the guarantee can be weaker &mdash; check before you deposit.</p>
 
-    <p>
-      <strong>You receive investments, not cash.</strong> What lands in your wallet is your slice of
-      the vault&rsquo;s positions, not dollars. Depending on what those positions are, you may need to
-      wait or take an extra step to turn them into cash yourself.
-    </p>
+    <p><strong>You get investments, not cash.</strong> You may need to wait to turn them into cash yourself.</p>
 
-    <p>
-      <strong>A few vaults are members-only.</strong> On vaults with restricted access, the guarantee
-      can be weaker. It&rsquo;s worth checking how a specific vault handles exits before you deposit.
-    </p>
+    <p><strong>You&rsquo;ll probably never need it.</strong> It&rsquo;s the fire escape, not the front door. Normal withdrawals just work.</p>
 
-    <p>
-      <strong>You&rsquo;ll probably never need any of this.</strong> In-kind redemption is the fire
-      escape, not the front door. Under normal conditions, ordinary withdrawals simply work, and the
-      emergency exit sits unused &mdash; which is exactly what you want from a fire escape.
-    </p>
+    <h2>Before you ask about the returns, ask: &ldquo;If everything goes wrong, can I still get out on my own?&rdquo;</h2>
 
-    <h2>The question worth asking</h2>
-
-    <p>
-      Before you ask any vault about its returns, ask it a better question first:
-      <em>&ldquo;If everything goes wrong, can I still get out on my own?&rdquo;</em>
-    </p>
-
-    <p>
-      Past platform collapses taught a hard lesson: &ldquo;your money is safe&rdquo; means nothing if
-      withdrawal is a button someone else can switch off. With Morpho vaults, the worst case
-      isn&rsquo;t frozen funds &mdash; it&rsquo;s a small fee and walking out with your investments in
-      hand. <strong>That&rsquo;s what really owning your money means.</strong>
-    </p>
+    <p>Past platform collapses taught a hard lesson: &ldquo;your money is safe&rdquo; means nothing if withdrawal is a button someone else can switch off. Here, the worst case isn&rsquo;t frozen funds &mdash; it&rsquo;s a small fee and walking out with your investments in hand. <strong>That&rsquo;s what really owning your money means.</strong></p>
 
     <div class="footer">
-      Not investment advice &middot; Source:
-      <a href="https://docs.morpho.org" rel="noopener noreferrer">docs.morpho.org</a> &middot;
-      <a href="/">vaultwatch.xyz</a>
+      A plain-language explainer &middot; not investment advice &middot;
+      <a href="https://docs.morpho.org" rel="noopener noreferrer">docs.morpho.org</a>
     </div>
   </div>
 </body>
