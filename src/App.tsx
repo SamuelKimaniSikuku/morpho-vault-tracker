@@ -23,7 +23,6 @@ import { getInitialTheme, applyTheme, type Theme } from "./theme";
 import { Sparkline } from "./Sparkline";
 import { exportWatchlist, parseAndMerge } from "./transfer";
 import { getVaultNews, type NewsItem } from "./news";
-import { BlogSection } from "./BlogSection";
 import "./App.css";
 
 const POLL_MS = 60_000;
@@ -828,8 +827,6 @@ function App() {
         )}
       </section>
 
-      <BlogSection />
-
       <footer>
         <p>
           Data from Morpho, Yearn, Beefy, and DefiLlama (Aave, Compound) public APIs. Nothing here is
@@ -837,7 +834,7 @@ function App() {
           browser, not on any server.
         </p>
         <p className="footer-social">
-          <a href="#blog">📖 Blog</a>
+          <a href="/blog/">📖 Blog</a>
           {" · "}
           <a href="https://x.com/vaultwatchxyz" target="_blank" rel="noopener noreferrer">
             𝕏 @vaultwatchxyz
