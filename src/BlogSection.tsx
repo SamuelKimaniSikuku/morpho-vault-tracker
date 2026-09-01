@@ -7,12 +7,9 @@ export function BlogSection() {
   const [open, setOpen] = useState(false);
 
   return (
-    <section className="blog-section">
+    <section className="blog-section" id="blog">
       <div className="blog-header">
         <h2>📖 Blog</h2>
-        <a className="blog-all" href="/blog/">
-          All posts →
-        </a>
       </div>
 
       <article className="blog-post">
@@ -110,9 +107,8 @@ export function BlogSection() {
         )}
 
         <div className="blog-actions">
-          <a href="/blog/the-exit-thats-always-open.html">Open the designed explainer ↗</a>
           <a href="/blog/the-exit-thats-always-open.pdf" download>
-            📄 Download PDF
+            📄 Download this post as a PDF
           </a>
         </div>
       </article>
