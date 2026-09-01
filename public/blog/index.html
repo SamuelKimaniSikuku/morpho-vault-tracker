@@ -9,7 +9,7 @@
   <style>
     :root { --bg:#0b0b10; --text:#dcdce4; --text2:#c9c9d6; --head:#f2f2f7; --muted:#8a8a9e; --border:#26262e; --accent:#8b8bf0; --accent-border:#5b5bd6; --box-bg:transparent; }
     [data-theme="light"] { --bg:#ffffff; --text:#2e2e38; --text2:#4a4a55; --head:#15151c; --muted:#6a6a78; --border:#e3e3e8; --accent:#5b5bd6; --accent-border:#5b5bd6; --box-bg:#f7f7fb; }
-    .theme-btn { float:right; cursor:pointer; background:none; border:1px solid var(--border); border-radius:999px; width:2rem; height:2rem; font-size:0.95rem; line-height:1; color:var(--text); }
+    .theme-btn { vertical-align:middle; cursor:pointer; background:none; border:1px solid var(--border); border-radius:999px; width:2rem; height:2rem; font-size:0.95rem; line-height:1; color:var(--text); }
     * { box-sizing: border-box; margin: 0; }
     body {
       font: 17px/1.65 Georgia, "Times New Roman", serif;
@@ -54,9 +54,9 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="topbar"><button class="theme-btn" aria-label="Toggle theme">☀️</button>
+    <div class="topbar">
       <span>VAULTWATCH · BLOG</span>
-      <span><a href="/">← BACK TO THE TRACKER</a></span>
+      <span><a href="/">← BACK TO THE TRACKER</a> &nbsp;<button class="theme-btn" aria-label="Toggle theme">☀️</button></span>
     </div>
 
     <h1>Vaults, in plain language.</h1>
