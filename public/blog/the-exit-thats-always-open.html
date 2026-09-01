@@ -7,32 +7,43 @@
   <link rel="icon" type="image/png" href="/favicon.png" />
   <meta name="description" content="The number one fear in DeFi lending is simple: what if I can't get my money out? Morpho's Vault V2 answers it with a mechanism borrowed from the ETF world." />
   <style>
+    :root { --bg:#0b0b10; --text:#dcdce4; --text2:#c9c9d6; --head:#f2f2f7; --muted:#8a8a9e; --border:#26262e; --accent:#8b8bf0; --accent-border:#5b5bd6; --box-bg:transparent; }
+    [data-theme="light"] { --bg:#ffffff; --text:#2e2e38; --text2:#4a4a55; --head:#15151c; --muted:#6a6a78; --border:#e3e3e8; --accent:#5b5bd6; --accent-border:#5b5bd6; --box-bg:#f7f7fb; }
+    .theme-btn { float:right; cursor:pointer; background:none; border:1px solid var(--border); border-radius:999px; width:2rem; height:2rem; font-size:0.95rem; line-height:1; color:var(--text); }
     * { box-sizing: border-box; margin: 0; }
-    body { font: 18px/1.7 Georgia, serif; background: #0b0b10; color: #dcdce4; padding: 0 1.25rem 5rem; }
+    body { font: 18px/1.7 Georgia, serif; background: var(--bg); color: var(--text); padding: 0 1.25rem 5rem; }
     .wrap { max-width: 700px; margin: 0 auto; }
-    .topbar { padding: 1.2rem 0; margin-bottom: 2.5rem; border-bottom: 1px solid #26262e; font: 12px/1 system-ui, sans-serif; letter-spacing: 0.18em; }
-    .topbar a { color: #9a9ab0; text-decoration: none; }
-    h1 { font-size: clamp(1.9rem, 5vw, 2.7rem); line-height: 1.2; font-weight: 500; color: #f2f2f7; margin-bottom: 1.2rem; }
-    .lede { font-size: 1.15rem; color: #c9c9d6; margin-bottom: 2.4rem; }
-    h2 { font-size: 1.35rem; font-weight: 500; color: #f2f2f7; margin: 2.4rem 0 0.9rem; }
+    .topbar { padding: 1.2rem 0; margin-bottom: 2.5rem; border-bottom: 1px solid var(--border); font: 12px/1 system-ui, sans-serif; letter-spacing: 0.18em; }
+    .topbar a { color: var(--muted); text-decoration: none; }
+    h1 { font-size: clamp(1.9rem, 5vw, 2.7rem); line-height: 1.2; font-weight: 500; color: var(--head); margin-bottom: 1.2rem; }
+    .lede { font-size: 1.15rem; color: var(--text2); margin-bottom: 2.4rem; }
+    h2 { font-size: 1.35rem; font-weight: 500; color: var(--head); margin: 2.4rem 0 0.9rem; }
     p { margin-bottom: 1.2rem; }
-    strong { color: #f2f2f7; }
-    .box { border: 1px solid #5b5bd6; border-radius: 8px; padding: 1.2rem 1.4rem; margin: 1.6rem 0; }
-    .box-label { display: block; font: 11px/1 system-ui, sans-serif; letter-spacing: 0.2em; color: #8b8bf0; margin-bottom: 0.7rem; }
+    strong { color: var(--head); }
+    .box { border: 1px solid var(--accent-border); background: var(--box-bg); border-radius: 8px; padding: 1.2rem 1.4rem; margin: 1.6rem 0; }
+    .box-label { display: block; font: 11px/1 system-ui, sans-serif; letter-spacing: 0.2em; color: var(--accent); margin-bottom: 0.7rem; }
     ol.steps { padding-left: 1.4rem; margin-bottom: 1.2rem; }
     ol.steps li { margin-bottom: 1.1rem; }
     ul.fine { padding-left: 1.4rem; margin-bottom: 1.2rem; }
     ul.fine li { margin-bottom: 1rem; }
-    .disclaimer { margin-top: 3rem; border-top: 1px solid #26262e; padding-top: 1.2rem; font: 14px/1.6 system-ui, sans-serif; color: #8a8a9e; }
-    .disclaimer a { color: #8b8bf0; }
+    .disclaimer { margin-top: 3rem; border-top: 1px solid var(--border); padding-top: 1.2rem; font: 14px/1.6 system-ui, sans-serif; color: var(--muted); }
+    .disclaimer a { color: var(--accent); }
   </style>
+  <script>
+    (function () { try {
+      var saved = localStorage.getItem("morpho-tracker:theme");
+      var t = (saved === "dark" || saved === "light") ? saved
+        : (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {} })();
+  </script>
 </head>
 <body>
   <div class="wrap">
-    <div class="topbar"><a href="/blog/">← VAULT WATCH · EXPLAINERS</a></div>
+    <div class="topbar"><button class="theme-btn" aria-label="Toggle theme">☀️</button><a href="/blog/">← VAULT WATCH · EXPLAINERS</a></div>
 
     <img src="/blog/exit-explainer-card.png" alt="The exit that's always open — one-page visual summary"
-         style="width:100%; height:auto; border:1px solid #26262e; border-radius:10px; margin-bottom:2.5rem;" />
+         style="width:100%; height:auto; border:1px solid var(--border); border-radius:10px; margin-bottom:2.5rem;" />
 
     <h1>The Exit That&rsquo;s Always Open: In-Kind Redemptions on Morpho Vaults</h1>
 
@@ -96,5 +107,13 @@
       This explainer describes the mechanism at a conceptual level; technical readers can find the full detail in the Morpho Vault V2 documentation at <a href="https://docs.morpho.org" rel="noopener noreferrer">docs.morpho.org</a>. Nothing here is investment advice &mdash; always assess a specific vault&rsquo;s curator, markets, and gate configuration before depositing.
     </p>
   </div>
+  <script>
+    document.querySelector(".theme-btn").addEventListener("click", function () {
+      var next = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", next);
+      try { localStorage.setItem("morpho-tracker:theme", next); } catch (e) {}
+      this.textContent = next === "light" ? "\ud83c\udf19" : "\u2600\ufe0f";
+    });
+  </script>
 </body>
 </html>
