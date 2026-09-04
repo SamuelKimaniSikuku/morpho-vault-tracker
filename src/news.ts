@@ -72,6 +72,9 @@ export async function getBiggestVaults(): Promise<Partial<Record<Protocol, Bigge
   for (const p of pools) {
     const protocol = PROJECT_TO_PROTOCOL[p.project];
     if (!protocol || !(p.tvlUsd > 0)) continue;
+    // Only pools that actually pay depositors: the raw biggest pools are often
+    // 0%-APY collateral markets (e.g. cbBTC/weETH), which aren't yield vaults.
+    if (p.apy == null || p.apy < 0.1 || p.apy > MAX_SANE_APY_PCT) continue;
     if (!best[protocol] || p.tvlUsd > best[protocol]!.tvlUsd) best[protocol] = p;
   }
   const out: Partial<Record<Protocol, BiggestVault>> = {};
