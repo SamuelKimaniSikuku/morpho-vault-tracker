@@ -22,7 +22,7 @@ import {
 import { getInitialTheme, applyTheme, type Theme } from "./theme";
 import { Sparkline } from "./Sparkline";
 import { exportWatchlist, parseAndMerge } from "./transfer";
-import { getVaultNews, type NewsItem } from "./news";
+import { getVaultNews, getBiggestVaults, type NewsItem, type BiggestVault } from "./news";
 import "./App.css";
 
 const POLL_MS = 60_000;
@@ -160,6 +160,7 @@ function App() {
   });
   const [topVaults, setTopVaults] = useState<Partial<Record<Protocol, VaultSummary | null>>>({});
   const [news, setNews] = useState<NewsItem[] | null>(null);
+  const [biggest, setBiggest] = useState<Partial<Record<Protocol, BiggestVault>> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -169,6 +170,12 @@ function App() {
         if (!cancelled) setNews(items);
       } catch {
         if (!cancelled) setNews([]);
+      }
+      try {
+        const big = await getBiggestVaults();
+        if (!cancelled) setBiggest(big);
+      } catch {
+        if (!cancelled) setBiggest({});
       }
     }
     refreshNews();
@@ -692,6 +699,48 @@ function App() {
                         </span>
                         <button disabled={already} onClick={() => addVault(top)}>
                           {already ? "Added" : "Add to watchlist"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
+
+      {(() => {
+        const visibleProtocols = ALL_PROTOCOLS.filter((p) => enabledProtocols[p]);
+        if (visibleProtocols.length === 0 || biggest === null) return null;
+        return (
+          <section className="spotlight">
+            <h2>Biggest vault by project</h2>
+            <p className="hint">
+              The largest vault in each protocol by total deposits (TVL). Size is a rough proxy for
+              liquidity — the bigger the pool, the easier it usually is to get in and out — but it
+              says nothing about yield or risk.
+            </p>
+            <div className="spotlight-cards">
+              {visibleProtocols.map((p) => {
+                const big = biggest[p];
+                return (
+                  <div key={p} className="spotlight-card">
+                    <span className={`badge badge-${p}`}>{PROTOCOL_LABELS[p]}</span>
+                    {!big && <p className="hint">No data right now.</p>}
+                    {big && (
+                      <>
+                        <span className="spotlight-name" title={big.name}>{big.name}</span>
+                        <span className="spotlight-apy spotlight-tvl">{big.tvlLabel}</span>
+                        <span
+                          className="spotlight-meta"
+                          title={`${big.chain} · $${big.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })} total deposits`}
+                        >
+                          {big.chain}
+                          {big.apyPct != null ? ` · ${big.apyPct.toFixed(2)}% APY` : ""}
+                        </span>
+                        <button onClick={() => { setQuery(big.name); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+                          Find in search
                         </button>
                       </>
                     )}

@@ -545,6 +545,10 @@ header h1 {
   color: var(--success);
 }
 
+.spotlight-tvl {
+  color: var(--accent);
+}
+
 .spotlight-meta {
   font-size: 0.68rem;
   color: var(--text-faint);

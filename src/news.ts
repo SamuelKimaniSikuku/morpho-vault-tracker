@@ -53,6 +53,42 @@ function toItem(p: LlamaPool): NewsItem {
   };
 }
 
+export interface BiggestVault {
+  protocol: Protocol;
+  name: string;
+  chain: string;
+  tvlUsd: number;
+  tvlLabel: string;
+  apyPct: number | null;
+}
+
+/** The single largest vault (by total deposits / TVL) in each protocol.
+ * Size is the market's liquidity vote: big vaults are where deposits sit
+ * and where exits are easiest. APY is shown but sanity-capped the same
+ * way as everywhere else so a bugged rate can't ride in on a big vault. */
+export async function getBiggestVaults(): Promise<Partial<Record<Protocol, BiggestVault>>> {
+  const pools = await loadAllPools();
+  const best: Partial<Record<Protocol, LlamaPool>> = {};
+  for (const p of pools) {
+    const protocol = PROJECT_TO_PROTOCOL[p.project];
+    if (!protocol || !(p.tvlUsd > 0)) continue;
+    if (!best[protocol] || p.tvlUsd > best[protocol]!.tvlUsd) best[protocol] = p;
+  }
+  const out: Partial<Record<Protocol, BiggestVault>> = {};
+  for (const [protocol, p] of Object.entries(best) as [Protocol, LlamaPool][]) {
+    const saneApy = p.apy != null && p.apy >= 0 && p.apy <= MAX_SANE_APY_PCT ? p.apy : null;
+    out[protocol] = {
+      protocol,
+      name: p.poolMeta ? `${p.symbol} (${p.poolMeta})` : p.symbol,
+      chain: p.chain,
+      tvlUsd: p.tvlUsd,
+      tvlLabel: fmtTvl(p.tvlUsd),
+      apyPct: saneApy,
+    };
+  }
+  return out;
+}
+
 export async function getVaultNews(): Promise<NewsItem[]> {
   const pools = await loadAllPools();
   const eligible = pools.filter(
