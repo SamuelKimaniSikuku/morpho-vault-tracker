@@ -2,7 +2,7 @@ import type { WatchedVault, Protocol } from "./types";
 import { vaultKey } from "./watchlist";
 
 const EXPORT_VERSION = 1;
-const VALID_PROTOCOLS: Protocol[] = ["morpho", "yearn", "beefy", "aave", "compound"];
+const VALID_PROTOCOLS: Protocol[] = ["morpho", "yearn", "beefy", "aave", "compound", "defi"];
 
 interface ExportFile {
   app: "vaultwatch";

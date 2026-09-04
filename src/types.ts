@@ -1,4 +1,4 @@
-export type Protocol = "morpho" | "yearn" | "beefy" | "aave" | "compound";
+export type Protocol = "morpho" | "yearn" | "beefy" | "aave" | "compound" | "defi";
 
 export interface WatchedVault {
   protocol: Protocol;

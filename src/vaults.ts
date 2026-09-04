@@ -3,6 +3,7 @@ import { searchYearnVaults, fetchYearnLiveState, getTopYearnVault } from "./year
 import { searchBeefyVaults, fetchBeefyLiveState, getTopBeefyVault } from "./beefy";
 import { searchAaveVaults, fetchAaveLiveState, getTopAaveVault } from "./aave";
 import { searchCompoundVaults, fetchCompoundLiveState, getTopCompoundVault } from "./compound";
+import { searchDefiVaults, fetchDefiLiveState, getTopDefiVault } from "./defi";
 import { fuzzyMatchScore } from "./fuzzy";
 import type { VaultSummary, WatchedVault, LiveState, Protocol } from "./types";
 
@@ -39,6 +40,7 @@ export async function searchVaults(query: string): Promise<VaultSummary[]> {
     searchBeefyVaults(query).catch(() => []),
     searchAaveVaults(query).catch(() => []),
     searchCompoundVaults(query).catch(() => []),
+    searchDefiVaults(query).catch(() => []),
   ]);
   const flat = results.flat();
   const q = query.trim().toLowerCase();
@@ -83,6 +85,8 @@ export async function fetchLiveState(vault: WatchedVault): Promise<LiveState | n
       return fetchAaveLiveState(vault);
     case "compound":
       return fetchCompoundLiveState(vault);
+    case "defi":
+      return fetchDefiLiveState(vault);
     default:
       return null;
   }
@@ -103,6 +107,8 @@ export async function getTopVault(protocol: Protocol): Promise<VaultSummary | nu
       return getTopAaveVault();
     case "compound":
       return getTopCompoundVault();
+    case "defi":
+      return getTopDefiVault();
     default:
       return null;
   }

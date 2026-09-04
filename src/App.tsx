@@ -33,6 +33,7 @@ const PROTOCOL_LABELS: Record<Protocol, string> = {
   beefy: "Beefy",
   aave: "Aave",
   compound: "Compound",
+  defi: "Other DeFi",
 };
 
 const ALL_PROTOCOLS = Object.keys(PROTOCOL_LABELS) as Protocol[];
@@ -157,6 +158,7 @@ function App() {
     beefy: true,
     aave: true,
     compound: true,
+    defi: true,
   });
   const [topVaults, setTopVaults] = useState<Partial<Record<Protocol, VaultSummary | null>>>({});
   const [news, setNews] = useState<NewsItem[] | null>(null);
@@ -234,7 +236,7 @@ function App() {
   const filteredKeys = useMemo(() => new Set(filteredWatchlist.map(vaultKey)), [filteredWatchlist]);
 
   const protocolCounts = useMemo(() => {
-    const counts: Record<Protocol, number> = { morpho: 0, yearn: 0, beefy: 0, aave: 0, compound: 0 };
+    const counts: Record<Protocol, number> = { morpho: 0, yearn: 0, beefy: 0, aave: 0, compound: 0, defi: 0 };
     for (const v of watchlist) counts[v.protocol]++;
     return counts;
   }, [watchlist]);
@@ -513,7 +515,8 @@ function App() {
           )}
         </div>
         <p className="subtitle">
-          Search vaults across Morpho, Yearn, Beefy, Aave, and Compound, add them to your watchlist, and see live
+          Search vaults across Morpho, Yearn, Beefy, Aave, Compound — and the rest of DeFi (Pendle,
+          Spark, Curve, Lido, Ethena, and ~500 more via DeFiLlama) — add them to your watchlist, and see live
           APY/TVL. Rows turn red when a vault is still meaningfully down from its recent peak (data
           refreshes every 60s, kept only in this browser).
         </p>
@@ -756,8 +759,8 @@ function App() {
         <section className="vault-news">
           <h2>📰 Vault news</h2>
           <p className="hint">
-            The biggest real yield moves of the last 24 hours across Morpho, Yearn, Beefy, Aave, and
-            Compound — computed live from market data, vaults with at least $1M TVL only.
+            The biggest real yield moves of the last 24 hours across all of DeFi — computed live
+            from market data, vaults with at least $1M TVL only.
           </p>
           <ul className="news-list">
             {news.map((item) => (
@@ -878,7 +881,8 @@ function App() {
 
       <footer>
         <p>
-          Data from Morpho, Yearn, Beefy, and DefiLlama (Aave, Compound) public APIs. Nothing here is
+          Data from Morpho, Yearn, Beefy, and DefiLlama (Aave, Compound, and all other DeFi projects)
+          public APIs. Nothing here is
           investment advice — this is a monitoring tool only. Your watchlist is stored locally in your
           browser, not on any server.
         </p>

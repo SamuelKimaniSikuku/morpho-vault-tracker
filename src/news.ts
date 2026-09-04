@@ -1,4 +1,5 @@
 import { loadAllPools, type LlamaPool } from "./defillama";
+import { prettyProject } from "./defi";
 import type { Protocol } from "./types";
 
 // "Vault news" is derived, not editorial: the biggest genuine yield moves
@@ -36,10 +37,13 @@ function fmtTvl(tvlUsd: number): string {
 }
 
 function toItem(p: LlamaPool): NewsItem {
-  const protocol = PROJECT_TO_PROTOCOL[p.project];
+  const protocol = PROJECT_TO_PROTOCOL[p.project] ?? "defi";
   const d1 = p.apyPct1D!;
   const up = d1 > 0;
-  const name = p.poolMeta ? `${p.symbol} (${p.poolMeta})` : p.symbol;
+  let name = p.poolMeta ? `${p.symbol} (${p.poolMeta})` : p.symbol;
+  // Outside the first-class protocols the badge just says "Other DeFi",
+  // so the headline has to carry which project this actually is.
+  if (protocol === "defi") name = `${prettyProject(p.project)} ${name}`;
   const week =
     p.apyPct7D != null && Math.abs(p.apyPct7D) >= MIN_MOVE_PP
       ? ` · ${p.apyPct7D > 0 ? "+" : ""}${p.apyPct7D.toFixed(1)}pp over 7d`
@@ -70,8 +74,8 @@ export async function getBiggestVaults(): Promise<Partial<Record<Protocol, Bigge
   const pools = await loadAllPools();
   const best: Partial<Record<Protocol, LlamaPool>> = {};
   for (const p of pools) {
-    const protocol = PROJECT_TO_PROTOCOL[p.project];
-    if (!protocol || !(p.tvlUsd > 0)) continue;
+    const protocol = PROJECT_TO_PROTOCOL[p.project] ?? "defi";
+    if (!(p.tvlUsd > 0)) continue;
     // Only pools that actually pay depositors: the raw biggest pools are often
     // 0%-APY collateral markets (e.g. cbBTC/weETH), which aren't yield vaults.
     if (p.apy == null || p.apy < 0.1 || p.apy > MAX_SANE_APY_PCT) continue;
@@ -80,9 +84,10 @@ export async function getBiggestVaults(): Promise<Partial<Record<Protocol, Bigge
   const out: Partial<Record<Protocol, BiggestVault>> = {};
   for (const [protocol, p] of Object.entries(best) as [Protocol, LlamaPool][]) {
     const saneApy = p.apy != null && p.apy >= 0 && p.apy <= MAX_SANE_APY_PCT ? p.apy : null;
+    const baseName = p.poolMeta ? `${p.symbol} (${p.poolMeta})` : p.symbol;
     out[protocol] = {
       protocol,
-      name: p.poolMeta ? `${p.symbol} (${p.poolMeta})` : p.symbol,
+      name: protocol === "defi" ? `${prettyProject(p.project)} ${baseName}` : baseName,
       chain: p.chain,
       tvlUsd: p.tvlUsd,
       tvlLabel: fmtTvl(p.tvlUsd),
@@ -96,7 +101,6 @@ export async function getVaultNews(): Promise<NewsItem[]> {
   const pools = await loadAllPools();
   const eligible = pools.filter(
     (p) =>
-      p.project in PROJECT_TO_PROTOCOL &&
       (p.tvlUsd ?? 0) >= MIN_TVL_USD &&
       p.apy != null &&
       p.apy >= 0 &&

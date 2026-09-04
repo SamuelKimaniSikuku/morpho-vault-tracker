@@ -344,6 +344,11 @@ header h1 {
   color: #a6dcf0;
 }
 
+.badge-defi {
+  background: #4d0e2e;
+  color: #f0a6c8;
+}
+
 .badge-outline {
   font-size: 0.7rem;
   padding: 0.1rem 0.4rem;

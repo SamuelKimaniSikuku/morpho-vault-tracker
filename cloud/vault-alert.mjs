@@ -96,6 +96,7 @@ function fetchLive(v) {
       return fetchYearn(v);
     case "beefy":
       return fetchBeefy(v);
+    case "defi":
     case "aave":
     case "compound":
       return fetchLlama(v);
