@@ -67,11 +67,27 @@ async function fetchBeefy(v) {
   return { apyPct: sane * 100, tvlUsd: tvl };
 }
 
+async function loadLlamaPools() {
+  const attempt = async (url) => {
+    try {
+      const res = await fetch(url);
+      const json = await res.json();
+      // Their CDN has served a cached garbage body with a 200 - validate the
+      // shape, and route around the poisoned cache entry with a unique param.
+      return Array.isArray(json?.data) && json.data.length > 0 ? json.data : null;
+    } catch {
+      return null;
+    }
+  };
+  return (
+    (await attempt("https://yields.llama.fi/pools")) ??
+    (await attempt("https://yields.llama.fi/pools?cb=" + Date.now()))
+  );
+}
+
 async function fetchLlama(v) {
-  if (!llamaPools) {
-    const res = await fetch("https://yields.llama.fi/pools");
-    llamaPools = (await res.json()).data;
-  }
+  if (!llamaPools) llamaPools = await loadLlamaPools();
+  if (!llamaPools) throw new Error("DeFiLlama pools unavailable");
   const pool = llamaPools.find((p) => p.pool === v.address);
   if (!pool) throw new Error("pool not found");
   const apy = pool.apy != null && Number.isFinite(pool.apy) && pool.apy >= 0 && pool.apy <= 10000 ? pool.apy : 0;
