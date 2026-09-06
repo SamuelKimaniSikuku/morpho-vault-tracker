@@ -251,8 +251,30 @@ function App() {
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const r = await searchVaults(query);
-        setResults(r);
+        // A comma-separated query is a LIST of vaults to look up at once
+        // ("Steakhouse Prime USDC, Resolv USDC, Spark USDC Vault"): search
+        // each part and merge, preferring exact name matches per part just
+        // like the screenshot flow does.
+        const parts = query.split(",").map((s) => s.trim()).filter((s) => s.length >= 2);
+        if (parts.length > 1) {
+          const lists = await Promise.all(parts.map((p) => searchVaults(p).catch(() => [] as VaultSummary[])));
+          const seen = new Set<string>();
+          const merged: VaultSummary[] = [];
+          lists.forEach((list, i) => {
+            const lower = parts[i].toLowerCase();
+            const exact = list.filter((v) => v.name.trim().toLowerCase() === lower);
+            for (const v of (exact.length > 0 ? exact : list).slice(0, 3)) {
+              const key = vaultKey(v);
+              if (seen.has(key)) continue;
+              seen.add(key);
+              merged.push(v);
+            }
+          });
+          setResults(merged);
+        } else {
+          const r = await searchVaults(query);
+          setResults(r);
+        }
       } finally {
         setSearching(false);
       }
@@ -588,7 +610,7 @@ function App() {
           </button>
           <h2>How to add a vault</h2>
           <ol>
-            <li>Search a vault name below (e.g. "Steakhouse", "Curve") — or upload a screenshot further down instead</li>
+            <li>Search a vault name below (e.g. "Steakhouse", "Curve"), paste a whole list separated by commas (e.g. "Resolv USDC, Spark USDC Vault, Steakhouse Prime ETH") — or upload a screenshot further down instead</li>
             <li>Check the network shown for each match, especially if the same name appears more than once</li>
             <li>Click <strong>Add</strong> — it shows up in "Your watchlist" and starts refreshing every 60 seconds automatically</li>
           </ol>
@@ -598,7 +620,7 @@ function App() {
       <section className="search">
         <input
           type="text"
-          placeholder="Search vault name (e.g. Steakhouse, Gauntlet, Curve, Beefy)…"
+          placeholder="Search a vault — or paste a list, separated by commas…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
