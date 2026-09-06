@@ -459,7 +459,24 @@ function App() {
         setOcrError("Couldn't read any vault-like text from that image. Try a clearer screenshot.");
         return;
       }
-      const resultLists = await Promise.all(candidates.map((c) => searchVaults(c).catch(() => [])));
+      const resultLists = await Promise.all(
+        candidates.map(async (c) => {
+          let list = await searchVaults(c.name).catch(() => [] as VaultSummary[]);
+          // If the screenshot's network icon was recognized, keep only the
+          // hinted chain's variant of any vault that exists on that chain -
+          // this collapses would-be ambiguous groups to the right network.
+          const hintChain = c.networkHint === "base" ? 8453 : c.networkHint === "ethereum" ? 1 : null;
+          if (hintChain != null) {
+            const namesOnHint = new Set(
+              list.filter((v) => v.chainId === hintChain).map((v) => `${v.protocol}:${v.name.toLowerCase()}`)
+            );
+            list = list.filter(
+              (v) => v.chainId === hintChain || !namesOnHint.has(`${v.protocol}:${v.name.toLowerCase()}`)
+            );
+          }
+          return list;
+        })
+      );
       const seen = new Set<string>();
       const merged: VaultSummary[] = [];
       for (const list of resultLists) {
