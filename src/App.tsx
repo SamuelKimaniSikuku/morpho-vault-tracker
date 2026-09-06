@@ -474,7 +474,13 @@ function App() {
               (v) => v.chainId === hintChain || !namesOnHint.has(`${v.protocol}:${v.name.toLowerCase()}`)
             );
           }
-          return list;
+          // When OCR read a name that matches a vault EXACTLY, the fuzzy
+          // near-misses ("Gauntlet USDT Prime" for "Gauntlet USDC Prime",
+          // tiny forks with similar names) are noise - show only the exact
+          // name's variants.
+          const lower = c.name.trim().toLowerCase();
+          const exact = list.filter((v) => v.name.trim().toLowerCase() === lower);
+          return exact.length > 0 ? exact : list;
         })
       );
       const seen = new Set<string>();

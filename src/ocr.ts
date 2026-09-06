@@ -74,7 +74,7 @@ function detectNetworkIcon(ctx: CanvasRenderingContext2D, bbox: { x0: number; y0
 
   const img = ctx.getImageData(0, y0, xEnd, h).data;
   const isBlue = (r: number, g: number, b: number) => b > 170 && b - r > 90 && b - g > 60;
-  const isWhite = (r: number, g: number, b: number) => r > 200 && g > 200 && b > 200;
+  const isWhite = (r: number, g: number, b: number) => r > 185 && g > 185 && b > 185;
   const isDark = (r: number, g: number, b: number) => r < 90 && g < 100 && b < 120;
 
   // Per-column fill counts across the strip left of the text.
@@ -119,7 +119,13 @@ function detectNetworkIcon(ctx: CanvasRenderingContext2D, bbox: { x0: number; y0
       const edgeFill = Math.min(blueCol[x] + whiteCol[x], blueCol[end - 1] + whiteCol[end - 1]);
       const squarish = maxFill > 0 && edgeFill / maxFill > 0.7;
       if (blue > (blue + white) * 0.7 && squarish) return "base";
-      if (white > (blue + white) * 0.5 && !squarish && dark > runW) return "ethereum";
+      // Ethereum: white-dominant blob with dark glyph pixels inside it. No
+      // shape requirement - real screenshots blur circle edges enough that
+      // the taper test is unreliable, and the glyph requirement already
+      // rules out plain white boxes/avatars. Solid-blue-square stays the
+      // only path to "base", so the USDC-style blue asset circle can't
+      // slip through either branch.
+      if (white > (blue + white) * 0.6 && dark >= h * 0.5) return "ethereum";
       return null; // recognized a blob but not confidently - don't guess
     }
     x = end + 1;
