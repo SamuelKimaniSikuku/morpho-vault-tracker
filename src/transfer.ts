@@ -51,6 +51,34 @@ export interface ImportResult {
   merged: WatchedVault[];
 }
 
+// A watchlist encoded into the URL fragment: the data travels inside the
+// link itself (never sent to any server - fragments stay in the browser),
+// so a bookmarked backup link survives any clearing of site storage.
+
+export function watchlistToHash(watchlist: WatchedVault[]): string {
+  const json = JSON.stringify(watchlist);
+  const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(json)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+  return `#w=${b64}`;
+}
+
+export function watchlistFromHash(hash: string): WatchedVault[] | null {
+  const m = hash.match(/^#w=([A-Za-z0-9_-]+)/);
+  if (!m) return null;
+  try {
+    const b64 = m[1].replace(/-/g, "+").replace(/_/g, "/");
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const parsed = JSON.parse(new TextDecoder().decode(bytes));
+    if (!Array.isArray(parsed)) return null;
+    const valid = parsed.filter(isValidVault);
+    return valid.length > 0 ? valid : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Parses an exported file and merges its vaults into the existing list,
  * deduplicating against what's already there and dropping malformed
  * entries rather than failing the whole import. Throws only when the

@@ -21,7 +21,7 @@ import {
 } from "./notify";
 import { getInitialTheme, applyTheme, type Theme } from "./theme";
 import { Sparkline } from "./Sparkline";
-import { exportWatchlist, parseAndMerge } from "./transfer";
+import { exportWatchlist, parseAndMerge, watchlistToHash, watchlistFromHash } from "./transfer";
 import { getVaultNews, getBiggestVaults, type NewsItem, type BiggestVault } from "./news";
 import "./App.css";
 
@@ -125,6 +125,41 @@ function App() {
   const [ocrMatches, setOcrMatches] = useState<VaultSummary[]>([]);
 
   const [importStatus, setImportStatus] = useState<string | null>(null);
+
+  // Restore from a bookmarked backup link (#w=...): merge, save, then strip
+  // the fragment so the address bar goes back to the clean URL.
+  useEffect(() => {
+    const fromLink = watchlistFromHash(window.location.hash);
+    if (!fromLink) return;
+    setWatchlist((prev) => {
+      const keys = new Set(prev.map(vaultKey));
+      const merged = [...prev];
+      let added = 0;
+      for (const v of fromLink) {
+        const k = vaultKey(v);
+        if (keys.has(k)) continue;
+        keys.add(k);
+        merged.push(v);
+        added++;
+      }
+      if (added > 0) {
+        saveWatchlist(merged);
+        setImportStatus(`✅ Restored ${added} vault${added === 1 ? "" : "s"} from your backup link.`);
+        setTimeout(() => setImportStatus(null), 8000);
+      }
+      return merged;
+    });
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  }, []);
+
+  function copyBackupLink() {
+    const url = `${window.location.origin}/${watchlistToHash(watchlist)}`;
+    navigator.clipboard.writeText(url).then(
+      () => setImportStatus("✅ Backup link copied — bookmark it (⌘+D after opening it). Opening that bookmark restores your watchlist anytime, even after the browser wipes site data."),
+      () => setImportStatus(`Copy failed — here is the link to copy manually: ${url.slice(0, 80)}…`)
+    );
+    setTimeout(() => setImportStatus(null), 12000);
+  }
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -786,9 +821,14 @@ function App() {
               </span>
             )}
             {watchlist.length > 0 && (
-              <button className="tool-btn" onClick={() => exportWatchlist(watchlist)}>
-                Export
-              </button>
+              <>
+                <button className="tool-btn" onClick={() => exportWatchlist(watchlist)}>
+                  Export
+                </button>
+                <button className="tool-btn" onClick={copyBackupLink}>
+                  Copy backup link
+                </button>
+              </>
             )}
             <button className="tool-btn" onClick={() => importInputRef.current?.click()}>
               Import
