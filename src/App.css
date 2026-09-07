@@ -415,6 +415,13 @@ header h1 {
   gap: 0.35rem;
 }
 
+/* Inline variant when the picker sits inside a section heading */
+h2 .window-picker {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 0.5rem;
+}
+
 .window-picker button {
   padding: 0.25rem 0.65rem;
   border-radius: 999px;

@@ -36,24 +36,29 @@ function fmtTvl(tvlUsd: number): string {
   return `$${Math.round(tvlUsd / 1e3)}k`;
 }
 
-function toItem(p: LlamaPool): NewsItem {
+export type NewsWindow = "1d" | "7d";
+
+function toItem(p: LlamaPool, window: NewsWindow): NewsItem {
   const protocol = PROJECT_TO_PROTOCOL[p.project] ?? "defi";
-  const d1 = p.apyPct1D!;
-  const up = d1 > 0;
+  const move = (window === "7d" ? p.apyPct7D : p.apyPct1D)!;
+  const up = move > 0;
   let name = p.poolMeta ? `${p.symbol} (${p.poolMeta})` : p.symbol;
   // Outside the first-class protocols the badge just says "Other DeFi",
   // so the headline has to carry which project this actually is.
   if (protocol === "defi") name = `${prettyProject(p.project)} ${name}`;
-  const week =
-    p.apyPct7D != null && Math.abs(p.apyPct7D) >= MIN_MOVE_PP
-      ? ` · ${p.apyPct7D > 0 ? "+" : ""}${p.apyPct7D.toFixed(1)}pp over 7d`
+  // Show the OTHER window's change as context when it's meaningful.
+  const other = window === "7d" ? p.apyPct1D : p.apyPct7D;
+  const otherLabel = window === "7d" ? "in 24h" : "over 7d";
+  const context =
+    other != null && Math.abs(other) >= MIN_MOVE_PP
+      ? ` · ${other > 0 ? "+" : ""}${other.toFixed(1)}pp ${otherLabel}`
       : "";
   return {
     id: p.pool,
     protocol,
     direction: up ? "up" : "down",
-    headline: `${name} on ${p.chain} ${up ? "jumped" : "fell"} ${Math.abs(d1).toFixed(1)}pp in 24h → ${p.apy!.toFixed(2)}% APY`,
-    detail: `${fmtTvl(p.tvlUsd)} TVL${week}`,
+    headline: `${name} on ${p.chain} ${up ? "jumped" : "fell"} ${Math.abs(move).toFixed(1)}pp ${window === "7d" ? "over 7 days" : "in 24h"} → ${p.apy!.toFixed(2)}% APY`,
+    detail: `${fmtTvl(p.tvlUsd)} TVL${context}`,
   };
 }
 
@@ -97,19 +102,20 @@ export async function getBiggestVaults(): Promise<Partial<Record<Protocol, Bigge
   return out;
 }
 
-export async function getVaultNews(): Promise<NewsItem[]> {
+export async function getVaultNews(window: NewsWindow = "1d"): Promise<NewsItem[]> {
   const pools = await loadAllPools();
+  const moveOf = (p: LlamaPool) => (window === "7d" ? p.apyPct7D : p.apyPct1D);
   const eligible = pools.filter(
     (p) =>
       (p.tvlUsd ?? 0) >= MIN_TVL_USD &&
       p.apy != null &&
       p.apy >= 0 &&
       p.apy <= MAX_SANE_APY_PCT &&
-      p.apyPct1D != null &&
-      Math.abs(p.apyPct1D) >= MIN_MOVE_PP
+      moveOf(p) != null &&
+      Math.abs(moveOf(p)!) >= MIN_MOVE_PP
   );
   return eligible
-    .sort((a, b) => Math.abs(b.apyPct1D!) - Math.abs(a.apyPct1D!))
+    .sort((a, b) => Math.abs(moveOf(b)!) - Math.abs(moveOf(a)!))
     .slice(0, MAX_ITEMS)
-    .map(toItem);
+    .map((p) => toItem(p, window));
 }

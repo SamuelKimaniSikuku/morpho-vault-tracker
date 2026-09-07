@@ -22,7 +22,7 @@ import {
 import { getInitialTheme, applyTheme, type Theme } from "./theme";
 import { Sparkline } from "./Sparkline";
 import { exportWatchlist, parseAndMerge, watchlistToHash, watchlistFromHash } from "./transfer";
-import { getVaultNews, getBiggestVaults, type NewsItem, type BiggestVault } from "./news";
+import { getVaultNews, getBiggestVaults, type NewsItem, type BiggestVault, type NewsWindow } from "./news";
 import "./App.css";
 
 const POLL_MS = 60_000;
@@ -197,13 +197,14 @@ function App() {
   });
   const [topVaults, setTopVaults] = useState<Partial<Record<Protocol, VaultSummary | null>>>({});
   const [news, setNews] = useState<NewsItem[] | null>(null);
+  const [newsWindow, setNewsWindow] = useState<NewsWindow>("1d");
   const [biggest, setBiggest] = useState<Partial<Record<Protocol, BiggestVault>> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function refreshNews() {
       try {
-        const items = await getVaultNews();
+        const items = await getVaultNews(newsWindow);
         if (!cancelled) setNews(items);
       } catch {
         if (!cancelled) setNews([]);
@@ -221,7 +222,7 @@ function App() {
       cancelled = true;
       clearInterval(id);
     };
-  }, []);
+  }, [newsWindow]);
 
   function toggleApySort() {
     setApySortDir((prev) => (prev === "desc" ? "asc" : "desc"));
@@ -837,10 +838,20 @@ function App() {
 
       {news !== null && news.length > 0 && (
         <section className="vault-news">
-          <h2>📰 Vault news</h2>
+          <h2>
+            📰 Vault news{" "}
+            <span className="window-picker">
+              <button className={newsWindow === "1d" ? "active" : ""} onClick={() => setNewsWindow("1d")}>
+                24h
+              </button>
+              <button className={newsWindow === "7d" ? "active" : ""} onClick={() => setNewsWindow("7d")}>
+                7d
+              </button>
+            </span>
+          </h2>
           <p className="hint">
-            The biggest real yield moves of the last 24 hours across all of DeFi — computed live
-            from market data, vaults with at least $1M TVL only.
+            The biggest real yield moves of the last {newsWindow === "7d" ? "7 days" : "24 hours"} across
+            all of DeFi — computed live from market data, vaults with at least $1M TVL only.
           </p>
           <ul className="news-list">
             {news.map((item) => (
