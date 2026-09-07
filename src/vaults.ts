@@ -9,7 +9,11 @@ import type { VaultSummary, WatchedVault, LiveState, Protocol } from "./types";
 
 export type { VaultSummary, WatchedVault, LiveState, Protocol } from "./types";
 
-const MAX_RESULTS = 20;
+const PROVIDERS = {
+  morpho: searchMorphoVaults, yearn: searchYearnVaults, beefy: searchBeefyVaults,
+  aave: searchAaveVaults, compound: searchCompoundVaults, defi: searchDefiVaults,
+};
+export interface SearchReport { vaults: VaultSummary[]; unavailable: Protocol[]; stale: Protocol[] }
 
 function groupKey(v: VaultSummary): string {
   return `${v.protocol}:${v.name.trim().toLowerCase()}`;
@@ -33,16 +37,19 @@ export function groupVaults(vaults: VaultSummary[]): VaultSummary[][] {
   return order.map((k) => groups.get(k)!);
 }
 
+export async function searchVaultsWithStatus(query: string): Promise<SearchReport> {
+  const protocols = Object.keys(PROVIDERS) as Protocol[];
+  const results = await Promise.allSettled(protocols.map(p => PROVIDERS[p](query)));
+  const unavailable = protocols.filter((_, i) => results[i].status === "rejected");
+  const flat = results.flatMap(result => result.status === "fulfilled" ? result.value : []);
+  return { vaults: rankVaults(flat, query), unavailable, stale: [...new Set(flat.filter(v => v.stale).map(v => v.protocol))] };
+}
+
 export async function searchVaults(query: string): Promise<VaultSummary[]> {
-  const results = await Promise.all([
-    searchMorphoVaults(query).catch(() => []),
-    searchYearnVaults(query).catch(() => []),
-    searchBeefyVaults(query).catch(() => []),
-    searchAaveVaults(query).catch(() => []),
-    searchCompoundVaults(query).catch(() => []),
-    searchDefiVaults(query).catch(() => []),
-  ]);
-  const flat = results.flat();
+  return (await searchVaultsWithStatus(query)).vaults;
+}
+
+export function rankVaults(flat: VaultSummary[], query: string): VaultSummary[] {
   const q = query.trim().toLowerCase();
 
   // Re-score everything against the raw query so ranking is consistent
@@ -52,11 +59,12 @@ export async function searchVaults(query: string): Promise<VaultSummary[]> {
   const byGroup = new Map<string, { items: VaultSummary[]; maxScore: number; maxTvl: number }>();
   for (const v of flat) {
     const score = fuzzyMatchScore(v.name, v.symbol, q);
+    if (score < 0.6) continue;
     const key = groupKey(v);
     const g = byGroup.get(key) ?? { items: [], maxScore: 0, maxTvl: 0 };
     g.items.push(v);
     g.maxScore = Math.max(g.maxScore, score);
-    g.maxTvl = Math.max(g.maxTvl, v.tvlUsd);
+    g.maxTvl = Math.max(g.maxTvl, v.tvlUsd ?? 0);
     byGroup.set(key, g);
   }
 
@@ -67,10 +75,10 @@ export async function searchVaults(query: string): Promise<VaultSummary[]> {
 
   const flatSorted: VaultSummary[] = [];
   for (const g of orderedGroups) {
-    g.items.sort((a, b) => b.tvlUsd - a.tvlUsd);
+    g.items.sort((a, b) => (b.tvlUsd ?? 0) - (a.tvlUsd ?? 0));
     flatSorted.push(...g.items);
   }
-  return flatSorted.slice(0, MAX_RESULTS);
+  return flatSorted;
 }
 
 export async function fetchLiveState(vault: WatchedVault): Promise<LiveState | null> {

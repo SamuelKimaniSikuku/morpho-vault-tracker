@@ -47,7 +47,8 @@ export function loadWatchlist(): WatchedVault[] {
 }
 
 export function saveWatchlist(list: WatchedVault[]) {
-  localStorage.setItem(WATCHLIST_KEY, JSON.stringify(list));
+  try { localStorage.setItem(WATCHLIST_KEY, JSON.stringify(list)); return true; }
+  catch { return false; }
 }
 
 type HistoryMap = Record<string, HistoryPoint[]>;
@@ -62,13 +63,14 @@ function loadAllHistory(): HistoryMap {
 }
 
 function saveAllHistory(map: HistoryMap) {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(map));
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(map)); } catch { /* Monitoring continues when storage is full. */ }
 }
 
 export function appendHistory(key: string, point: HistoryPoint) {
   const all = loadAllHistory();
   const cutoff = point.ts - MAX_HISTORY_MS;
   const existing = (all[key] ?? []).filter((p) => p.ts >= cutoff);
+  if (existing.some(p => p.ts === point.ts)) return;
   existing.push(point);
   all[key] = existing;
   saveAllHistory(all);

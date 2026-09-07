@@ -1,999 +1,261 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { searchVaults, fetchLiveState, getTopVault, groupVaults, type VaultSummary, type WatchedVault, type Protocol } from "./vaults";
-import {
-  loadWatchlist,
-  saveWatchlist,
-  vaultKey,
-  appendHistory,
-  peakInWindow,
-  troughInWindow,
-  isDepressed,
-  isImproved,
-  statsInWindow,
-  type WindowStats,
-} from "./watchlist";
-import { extractVaultCandidates } from "./ocr";
-import {
-  notificationsSupported,
-  notificationPermission,
-  requestNotificationPermission,
-  fireNotification,
-} from "./notify";
-import { getInitialTheme, applyTheme, type Theme } from "./theme";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { getTopVault, searchVaults, groupVaults } from "./vaults";
+import type { VaultSummary, WatchedVault, Protocol } from "./types";
+import { loadWatchlist, saveWatchlist, vaultKey, getHistory, statsInWindow } from "./watchlist";
+import { useMonitor } from "./useMonitor";
+import { loadAlertSettings, validAlerts, DEFAULT_ALERTS, evaluateAlert, dataStatus, type AlertSettings, type Reading } from "./monitoring";
+import { getInitialTheme, applyTheme } from "./theme";
+import { notificationPermission, requestNotificationPermission, fireNotification } from "./notify";
+import { exportWatchlist, parseAndMerge, watchlistFromHash, watchlistToHash } from "./transfer";
+import { getMarketOverview, type NewsWindow } from "./news";
+import { filterVaults, networkLabel, ALL_FILTERS } from "./filters";
+import { sourceName, vaultLink, poolLink } from "./sources";
+import { Dialog, FilterControls, Icon, ProtocolBadge, StatusBadge, ALL_PROTOCOLS, PROTOCOL_LABELS, formatRate, formatMoney, age, rateLabel } from "./ui";
+import { SearchPanel } from "./SearchPanel";
 import { Sparkline } from "./Sparkline";
-import { exportWatchlist, parseAndMerge, watchlistToHash, watchlistFromHash } from "./transfer";
-import { getVaultNews, getBiggestVaults, type NewsItem, type BiggestVault, type NewsWindow } from "./news";
 import "./App.css";
 
-const POLL_MS = 60_000;
-
-const PROTOCOL_LABELS: Record<Protocol, string> = {
-  morpho: "Morpho",
-  yearn: "Yearn",
-  beefy: "Beefy",
-  aave: "Aave",
-  compound: "Compound",
-  defi: "Other DeFi",
-};
-
-const ALL_PROTOCOLS = Object.keys(PROTOCOL_LABELS) as Protocol[];
-
-const PERFORMER_WINDOWS = [
-  { label: "1h", ms: 60 * 60 * 1000 },
-  { label: "3h", ms: 3 * 60 * 60 * 1000 },
-  { label: "6h", ms: 6 * 60 * 60 * 1000 },
-  { label: "24h", ms: 24 * 60 * 60 * 1000 },
-];
-
-interface LiveRow {
-  vault: WatchedVault;
-  apy: number | null;
-  tvl: number | null;
-  peakApy: number | null;
-  troughApy: number | null;
-  lastChecked: number | null;
-  warn: boolean;
-  improved: boolean;
-  error: boolean;
+function initialWatchlist() {
+  const existing = loadWatchlist();
+  const restored = watchlistFromHash(window.location.hash) ?? [];
+  const unique = new Map(existing.map(v => [vaultKey(v), v]));
+  for (const vault of restored) if (!unique.has(vaultKey(vault))) unique.set(vaultKey(vault), vault);
+  return [...unique.values()];
 }
 
-function formatDuration(ms: number): string {
-  const mins = Math.round(ms / 60_000);
-  if (mins < 1) return "under a minute";
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  const rem = mins % 60;
-  return rem > 0 ? `${hours}h ${rem}m` : `${hours}h`;
-}
-
-function performerNote(stats: WindowStats | null, windowMs: number, now: number, currentApy: number | null): string {
-  const windowLabel = PERFORMER_WINDOWS.find((w) => w.ms === windowMs)?.label ?? formatDuration(windowMs);
-  const current = currentApy != null ? `now ${currentApy.toFixed(2)}% · ` : "";
-
-  if (!stats || stats.pointCount < 2) {
-    return `${current}just added, not enough checks yet for a ${windowLabel} average`;
-  }
-
-  const coverageMs = now - stats.earliestTs;
-  if (coverageMs < windowMs * 0.9) {
-    return `${current}avg over ${formatDuration(coverageMs)} tracked so far (less than ${windowLabel})`;
-  }
-
-  return `${current}avg over last ${windowLabel} (${stats.minApy.toFixed(2)}%–${stats.maxApy.toFixed(2)}% range)`;
-}
-
-function App() {
+export default function App() {
+  const [view, setView] = useState<"watchlist" | "explore">("watchlist");
+  const [watchlist, setWatchlist] = useState(initialWatchlist);
+  const watchRef = useRef(watchlist); watchRef.current = watchlist;
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<VaultSummary[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [watchlist, setWatchlist] = useState<WatchedVault[]>(() => loadWatchlist());
-  const [rows, setRows] = useState<Record<string, LiveRow>>({});
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevWarnRef = useRef<Record<string, boolean>>({});
-  const prevImprovedRef = useRef<Record<string, boolean>>({});
-
-  const [notifPermission, setNotifPermission] = useState(notificationPermission());
-  const [notifToast, setNotifToast] = useState<string | null>(null);
-  const [notifPanelOpen, setNotifPanelOpen] = useState(false);
-  const notifPanelRef = useRef<HTMLDivElement | null>(null);
-
-  const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
-
-  const [howToOpen, setHowToOpen] = useState(() => {
-    try {
-      return localStorage.getItem("morpho-tracker:how-to-dismissed") !== "1";
-    } catch {
-      return true;
-    }
-  });
-
-  function dismissHowTo() {
-    setHowToOpen(false);
-    try {
-      localStorage.setItem("morpho-tracker:how-to-dismissed", "1");
-    } catch {
-      // ignore - it'll just show again next visit
-    }
-  }
-
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
-
+  const [theme, setTheme] = useState(getInitialTheme);
+  const [settings, setSettings] = useState(loadAlertSettings);
+  const [draft, setDraft] = useState<AlertSettings>(settings);
+  const [modal, setModal] = useState<"import" | "alerts" | null>(null);
+  const [selected, setSelected] = useState<{ vault: WatchedVault; snapshot?: VaultSummary } | null>(null);
+  const [permission, setPermission] = useState(notificationPermission);
+  const [notice, setNotice] = useState("");
+  const [storageWarning, setStorageWarning] = useState(false);
+  const [removed, setRemoved] = useState<WatchedVault | null>(null);
+  const [now, setNow] = useState(Date.now);
+  const [online, setOnline] = useState(navigator.onLine);
+  const [filters, setFilters] = useState(ALL_FILTERS);
+  const [sort, setSort] = useState("recent");
+  const [highlightHours, setHighlightHours] = useState(3);
+  const { rows, events, refreshing, refresh } = useMonitor(watchlist, settings);
+  const [topVaults, setTopVaults] = useState<Partial<Record<Protocol, VaultSummary | null>>>({});
+  const [topErrors, setTopErrors] = useState<Protocol[]>([]);
+  const [market, setMarket] = useState<Awaited<ReturnType<typeof getMarketOverview>> | null>(null);
+  const [marketError, setMarketError] = useState(false);
+  const [exploreBusy, setExploreBusy] = useState(false);
+  const [exploreRevision, setExploreRevision] = useState(0);
+  const [newsWindow, setNewsWindow] = useState<NewsWindow>("1d");
   const [ocrBusy, setOcrBusy] = useState(false);
-  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [ocrMessage, setOcrMessage] = useState("");
   const [ocrMatches, setOcrMatches] = useState<VaultSummary[]>([]);
+  const [backupLink, setBackupLink] = useState("");
+  const [importMessage, setImportMessage] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
 
-  const [importStatus, setImportStatus] = useState<string | null>(null);
-
-  // Restore from a bookmarked backup link (#w=...): merge, save, then strip
-  // the fragment so the address bar goes back to the clean URL.
+  useEffect(() => { applyTheme(theme); }, [theme]);
+  useEffect(() => { setStorageWarning(!saveWatchlist(watchlist)); }, [watchlist]);
   useEffect(() => {
-    const fromLink = watchlistFromHash(window.location.hash);
-    if (!fromLink) return;
-    setWatchlist((prev) => {
-      const keys = new Set(prev.map(vaultKey));
-      const merged = [...prev];
-      let added = 0;
-      for (const v of fromLink) {
-        const k = vaultKey(v);
-        if (keys.has(k)) continue;
-        keys.add(k);
-        merged.push(v);
-        added++;
-      }
-      if (added > 0) {
-        saveWatchlist(merged);
-        setImportStatus(`✅ Restored ${added} vault${added === 1 ? "" : "s"} from your backup link.`);
-        setTimeout(() => setImportStatus(null), 8000);
-      }
-      return merged;
-    });
-    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    if (watchlistFromHash(window.location.hash)) {
+      setNotice("Your backup watchlist has been restored.");
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+    const tick = setInterval(() => setNow(Date.now()), 15_000);
+    const updateConnection = () => { setOnline(navigator.onLine); setNow(Date.now()); };
+    const updatePermission = () => setPermission(notificationPermission());
+    window.addEventListener("online", updateConnection); window.addEventListener("offline", updateConnection);
+    window.addEventListener("focus", updatePermission);
+    return () => { clearInterval(tick); window.removeEventListener("online", updateConnection); window.removeEventListener("offline", updateConnection); window.removeEventListener("focus", updatePermission); };
   }, []);
 
-  function copyBackupLink() {
-    const url = `${window.location.origin}/${watchlistToHash(watchlist)}`;
-    navigator.clipboard.writeText(url).then(
-      () => setImportStatus("✅ Backup link copied — bookmark it (⌘+D after opening it). Opening that bookmark restores your watchlist anytime, even after the browser wipes site data."),
-      () => setImportStatus(`Copy failed — here is the link to copy manually: ${url.slice(0, 80)}…`)
-    );
-    setTimeout(() => setImportStatus(null), 12000);
-  }
-  const importInputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (view !== "explore") return;
+    let cancelled = false, running = false;
+    async function updateExplore() {
+      if (running) return;
+      running = true; setExploreBusy(true);
+      const [tops, overview] = await Promise.all([
+        Promise.allSettled(ALL_PROTOCOLS.map(getTopVault)),
+        getMarketOverview(newsWindow).then(value => ({ value, failed: false as const }), () => ({ value: null, failed: true as const })),
+      ]);
+      if (!cancelled) {
+        setTopVaults(previous => Object.fromEntries(ALL_PROTOCOLS.map((p, i) => {
+          const result = tops[i];
+          return [p, result.status === "fulfilled" ? result.value : previous[p] ? { ...previous[p], stale: true } : null];
+        })));
+        setTopErrors(ALL_PROTOCOLS.filter((_, i) => tops[i].status === "rejected"));
+        setMarketError(overview.failed);
+        if (overview.value) setMarket(overview.value);
+        setExploreBusy(false);
+      }
+      running = false;
+    }
+    void updateExplore();
+    const timer = setInterval(() => { void updateExplore(); }, 60_000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [view, newsWindow, exploreRevision]);
 
-  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (importInputRef.current) importInputRef.current.value = "";
+  function addVault(v: WatchedVault) {
+    const saved: WatchedVault = { protocol: v.protocol, address: v.address, chainId: v.chainId, network: v.network, name: v.name, symbol: v.symbol, assetSymbol: v.assetSymbol, badge: v.badge, morphoVersion: v.morphoVersion, beefyId: v.beefyId };
+    setWatchlist(previous => previous.some(item => vaultKey(item) === vaultKey(v)) ? previous : [...previous, saved]);
+    setRemoved(null); setNotice(`${v.name} added to your watchlist.`);
+  }
+  function removeVault(v: WatchedVault) {
+    setWatchlist(previous => previous.filter(item => vaultKey(item) !== vaultKey(v)));
+    setRemoved(v); setNotice(`${v.name} removed.`);
+  }
+  function openDetails(vault: WatchedVault, snapshot?: VaultSummary) { setModal(null); setSelected({ vault, snapshot }); }
+  function openAlerts() { setDraft(settings); setAlertMessage(""); setModal("alerts"); }
+  async function importFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]; event.target.value = "";
     if (!file) return;
     try {
-      const text = await file.text();
-      const result = parseAndMerge(text, watchlist);
+      const result = parseAndMerge(await file.text(), watchRef.current);
       setWatchlist(result.merged);
-      saveWatchlist(result.merged);
-      const parts = [`${result.added} vault${result.added === 1 ? "" : "s"} added`];
-      if (result.skippedDuplicates > 0) parts.push(`${result.skippedDuplicates} already in your list`);
-      if (result.skippedInvalid > 0) parts.push(`${result.skippedInvalid} invalid entries skipped`);
-      setImportStatus(`✅ Import done: ${parts.join(", ")}.`);
-    } catch (err) {
-      setImportStatus(`❌ ${err instanceof Error ? err.message : "Import failed."}`);
-    }
-    setTimeout(() => setImportStatus(null), 8000);
+      setImportMessage(`${result.added} vaults added. ${result.skippedDuplicates} already watched; ${result.skippedInvalid} invalid entries skipped.`);
+    } catch (error) { setImportMessage(error instanceof Error ? error.message : "Import failed. Please try again."); }
   }
-
-  const ocrGroups = useMemo(() => groupVaults(ocrMatches), [ocrMatches]);
-  const resultGroups = useMemo(() => groupVaults(results), [results]);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const [apySortDir, setApySortDir] = useState<"asc" | "desc" | null>(null);
-  const [performerWindowMs, setPerformerWindowMs] = useState(PERFORMER_WINDOWS[1].ms); // default 3h
-  const [enabledProtocols, setEnabledProtocols] = useState<Record<Protocol, boolean>>({
-    morpho: true,
-    yearn: true,
-    beefy: true,
-    aave: true,
-    compound: true,
-    defi: true,
-  });
-  const [topVaults, setTopVaults] = useState<Partial<Record<Protocol, VaultSummary | null>>>({});
-  const [news, setNews] = useState<NewsItem[] | null>(null);
-  const [newsWindow, setNewsWindow] = useState<NewsWindow>("1d");
-  const [biggest, setBiggest] = useState<Partial<Record<Protocol, BiggestVault>> | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function refreshNews() {
-      try {
-        const items = await getVaultNews(newsWindow);
-        if (!cancelled) setNews(items);
-      } catch {
-        if (!cancelled) setNews([]);
-      }
-      try {
-        const big = await getBiggestVaults();
-        if (!cancelled) setBiggest(big);
-      } catch {
-        if (!cancelled) setBiggest({});
-      }
-    }
-    refreshNews();
-    const id = setInterval(refreshNews, POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [newsWindow]);
-
-  function toggleApySort() {
-    setApySortDir((prev) => (prev === "desc" ? "asc" : "desc"));
+  async function copyBackup() {
+    const link = `${window.location.origin}${window.location.pathname}${watchlistToHash(watchlist)}`;
+    try { await navigator.clipboard.writeText(link); setBackupLink(""); setImportMessage("Backup link copied. Bookmark it to restore this watchlist on another device."); }
+    catch { setBackupLink(link); setImportMessage("Copy the complete backup link below."); }
   }
-
-  function toggleProtocol(p: Protocol) {
-    setEnabledProtocols((prev) => ({ ...prev, [p]: !prev[p] }));
-  }
-
-  useEffect(() => {
-    if (!notifPanelOpen) return;
-    function onClickOutside(e: MouseEvent) {
-      if (notifPanelRef.current && !notifPanelRef.current.contains(e.target as Node)) {
-        setNotifPanelOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, [notifPanelOpen]);
-
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (query.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-    setSearching(true);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        // A comma-separated query is a LIST of vaults to look up at once
-        // ("Steakhouse Prime USDC, Resolv USDC, Spark USDC Vault"): search
-        // each part and merge, preferring exact name matches per part just
-        // like the screenshot flow does.
-        const parts = query.split(",").map((s) => s.trim()).filter((s) => s.length >= 2);
-        if (parts.length > 1) {
-          const lists = await Promise.all(parts.map((p) => searchVaults(p).catch(() => [] as VaultSummary[])));
-          const seen = new Set<string>();
-          const merged: VaultSummary[] = [];
-          lists.forEach((list, i) => {
-            const lower = parts[i].toLowerCase();
-            const exact = list.filter((v) => v.name.trim().toLowerCase() === lower);
-            for (const v of (exact.length > 0 ? exact : list).slice(0, 3)) {
-              const key = vaultKey(v);
-              if (seen.has(key)) continue;
-              seen.add(key);
-              merged.push(v);
-            }
-          });
-          setResults(merged);
-        } else {
-          const r = await searchVaults(query);
-          setResults(r);
-        }
-      } finally {
-        setSearching(false);
-      }
-    }, 350);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query]);
-
-  const watchedKeys = useMemo(() => new Set(watchlist.map(vaultKey)), [watchlist]);
-
-  const filteredWatchlist = useMemo(
-    () => watchlist.filter((v) => enabledProtocols[v.protocol]),
-    [watchlist, enabledProtocols]
-  );
-  const filteredKeys = useMemo(() => new Set(filteredWatchlist.map(vaultKey)), [filteredWatchlist]);
-
-  const protocolCounts = useMemo(() => {
-    const counts: Record<Protocol, number> = { morpho: 0, yearn: 0, beefy: 0, aave: 0, compound: 0, defi: 0 };
-    for (const v of watchlist) counts[v.protocol]++;
-    return counts;
-  }, [watchlist]);
-
-
-  const avgApy = useMemo(() => {
-    const apys = Object.values(rows)
-      .filter((r) => filteredKeys.has(vaultKey(r.vault)))
-      .map((r) => r.apy)
-      .filter((a): a is number => a != null);
-    if (apys.length === 0) return null;
-    return apys.reduce((sum, a) => sum + a, 0) / apys.length;
-  }, [rows, filteredKeys]);
-
-  const performers = useMemo(() => {
-    const now = Date.now();
-    const withStats = Object.values(rows)
-      .filter((r) => r.apy != null && filteredKeys.has(vaultKey(r.vault)))
-      .map((r) => {
-        const stats = statsInWindow(vaultKey(r.vault), now, performerWindowMs);
-        // Fall back to the live snapshot if history hasn't caught up yet -
-        // still better than excluding a just-added vault entirely.
-        const avgApy = stats?.avgApy ?? r.apy!;
-        return { row: r, stats, avgApy };
-      });
-    if (withStats.length < 2) return null;
-
-    const best = withStats.reduce((a, b) => (b.avgApy > a.avgApy ? b : a));
-    const worst = withStats.reduce((a, b) => (b.avgApy < a.avgApy ? b : a));
-    return { best, worst, now };
-  }, [rows, performerWindowMs, filteredKeys]);
-
-  const sortedWatchlist = useMemo(() => {
-    if (apySortDir === null) return filteredWatchlist;
-    return [...filteredWatchlist].sort((a, b) => {
-      const apyA = rows[vaultKey(a)]?.apy;
-      const apyB = rows[vaultKey(b)]?.apy;
-      if (apyA == null && apyB == null) return 0;
-      if (apyA == null) return 1; // vaults still loading/errored sink to the bottom
-      if (apyB == null) return -1;
-      return apySortDir === "asc" ? apyA - apyB : apyB - apyA;
-    });
-  }, [filteredWatchlist, rows, apySortDir]);
-
-  function addVault(v: VaultSummary) {
-    const watched: WatchedVault = {
-      protocol: v.protocol,
-      address: v.address,
-      chainId: v.chainId,
-      network: v.network,
-      name: v.name,
-      symbol: v.symbol,
-      badge: v.badge,
-      morphoVersion: v.morphoVersion,
-      beefyId: v.beefyId,
-    };
-    const key = vaultKey(watched);
-    if (watchedKeys.has(key)) return;
-    const next = [...watchlist, watched];
-    setWatchlist(next);
-    saveWatchlist(next);
-  }
-
-  function removeVault(key: string) {
-    const next = watchlist.filter((v) => vaultKey(v) !== key);
-    setWatchlist(next);
-    saveWatchlist(next);
-    setRows((prev) => {
-      const copy = { ...prev };
-      delete copy[key];
-      return copy;
-    });
-    delete prevWarnRef.current[key];
-    delete prevImprovedRef.current[key];
-  }
-
-  async function checkOne(v: WatchedVault) {
-    const key = vaultKey(v);
-    const live = await fetchLiveState(v);
-    const now = Date.now();
-    if (!live) {
-      setRows((prev) => ({
-        ...prev,
-        [key]: prev[key]
-          ? { ...prev[key], error: true }
-          : {
-              vault: v,
-              apy: null,
-              tvl: null,
-              peakApy: null,
-              troughApy: null,
-              lastChecked: null,
-              warn: false,
-              improved: false,
-              error: true,
-            },
-      }));
-      return;
-    }
-    appendHistory(key, { ts: now, apy: live.netApyPct, tvl: live.tvlUsd });
-    const { peakApy, peakTvl } = peakInWindow(key, now);
-    const { troughApy, troughTvl } = troughInWindow(key, now);
-    const warn = isDepressed(live.netApyPct, live.tvlUsd, peakApy, peakTvl);
-    const improved = !warn && isImproved(live.netApyPct, live.tvlUsd, troughApy, troughTvl);
-
-    if (warn && !prevWarnRef.current[key]) {
-      sendNotification(
-        `${v.name} is down`,
-        `Net APY ${live.netApyPct.toFixed(2)}% (peak ${peakApy?.toFixed(2)}%), TVL $${live.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-      );
-    }
-    if (improved && !prevImprovedRef.current[key]) {
-      sendNotification(
-        `${v.name} is up`,
-        `Net APY ${live.netApyPct.toFixed(2)}% (low ${troughApy?.toFixed(2)}%), TVL $${live.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-      );
-    }
-    prevWarnRef.current[key] = warn;
-    prevImprovedRef.current[key] = improved;
-
-    setRows((prev) => ({
-      ...prev,
-      [key]: { vault: v, apy: live.netApyPct, tvl: live.tvlUsd, peakApy, troughApy, lastChecked: now, warn, improved, error: false },
-    }));
-  }
-
-  useEffect(() => {
-    watchlist.forEach(checkOne);
-    const id = setInterval(() => {
-      watchlist.forEach(checkOne);
-    }, POLL_MS);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchlist]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function refresh() {
-      const results = await Promise.all(ALL_PROTOCOLS.map((p) => getTopVault(p)));
-      if (cancelled) return;
-      setTopVaults((prev) => {
-        const next = { ...prev };
-        ALL_PROTOCOLS.forEach((p, i) => (next[p] = results[i]));
-        return next;
-      });
-    }
-    refresh();
-    const id = setInterval(refresh, POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
-
-  function sendNotification(title: string, body: string) {
-    const result = fireNotification(title, body);
-    if (result.attempted) {
-      setNotifToast(`✅ Browser accepted the notification call for "${title}". If nothing popped up, check macOS System Settings → Notifications → your browser (make sure it's allowed, style isn't "None"), and that Focus/Do Not Disturb is off.`);
-    } else {
-      setNotifToast(`❌ Notification call failed: ${result.error}`);
-    }
-    setTimeout(() => setNotifToast(null), 9000);
-  }
-
-  async function enableNotifications() {
-    const perm = await requestNotificationPermission();
-    setNotifPermission(perm);
-  }
-
-  async function handleScreenshot(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) {
-      setOcrError("No image came through from the picker — try picking the photo again.");
-      return;
-    }
-    setOcrBusy(true);
-    setOcrError(null);
-    setOcrMatches([]);
+  async function readScreenshot(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]; event.target.value = "";
+    if (!file) return;
+    setOcrBusy(true); setOcrMessage(""); setOcrMatches([]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), 30_000)
-      );
-      const candidates = await Promise.race([extractVaultCandidates(file), timeout]);
-      if (candidates.length === 0) {
-        setOcrError("Couldn't read any vault-like text from that image. Try a clearer screenshot.");
-        return;
-      }
-      const resultLists = await Promise.all(
-        candidates.map(async (c) => {
-          let list = await searchVaults(c.name).catch(() => [] as VaultSummary[]);
-          // If the screenshot's network icon was recognized, keep only the
-          // hinted chain's variant of any vault that exists on that chain -
-          // this collapses would-be ambiguous groups to the right network.
-          const hintChain = c.networkHint === "base" ? 8453 : c.networkHint === "ethereum" ? 1 : null;
-          if (hintChain != null) {
-            const namesOnHint = new Set(
-              list.filter((v) => v.chainId === hintChain).map((v) => `${v.protocol}:${v.name.toLowerCase()}`)
-            );
-            list = list.filter(
-              (v) => v.chainId === hintChain || !namesOnHint.has(`${v.protocol}:${v.name.toLowerCase()}`)
-            );
-          }
-          // When OCR read a name that matches a vault EXACTLY, the fuzzy
-          // near-misses ("Gauntlet USDT Prime" for "Gauntlet USDC Prime",
-          // tiny forks with similar names) are noise - show only the exact
-          // name's variants.
-          const lower = c.name.trim().toLowerCase();
-          const exact = list.filter((v) => v.name.trim().toLowerCase() === lower);
-          return exact.length > 0 ? exact : list;
-        })
-      );
-      const seen = new Set<string>();
-      const merged: VaultSummary[] = [];
-      for (const list of resultLists) {
-        for (const v of list.slice(0, 3)) {
-          const key = vaultKey(v);
-          if (seen.has(key)) continue;
-          seen.add(key);
-          merged.push(v);
+      const { extractVaultCandidates } = await import("./ocr");
+      const candidates = await Promise.race([extractVaultCandidates(file), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("Reading timed out. Try a smaller, clearer screenshot.")), 30_000); })]);
+      if (!candidates.length) { setOcrMessage("No vault names could be read. Try a clearer screenshot or search by name."); return; }
+      const lists = await Promise.all(candidates.slice(0, 10).map(async candidate => {
+        let list = await searchVaults(candidate.name);
+        const chain = candidate.networkHint === "base" ? 8453 : candidate.networkHint === "ethereum" ? 1 : null;
+        if (chain != null) {
+          const onChain = new Set(list.filter(v => v.chainId === chain).map(v => `${v.protocol}:${v.name.toLowerCase()}`));
+          list = list.filter(v => v.chainId === chain || !onChain.has(`${v.protocol}:${v.name.toLowerCase()}`));
         }
-      }
-      if (merged.length === 0) {
-        setOcrError("Read some text but couldn't match it to a known vault. Try a clearer screenshot.");
-      } else {
-        setOcrMatches(merged);
-      }
-    } catch (err) {
-      console.error("Screenshot OCR failed:", err);
-      const timedOut = err instanceof Error && err.message === "timeout";
-      setOcrError(
-        timedOut
-          ? "This is taking too long — text recognition needs to download some data on first use, so check your connection and try again."
-          : "OCR failed on that image — try a different screenshot."
-      );
-    } finally {
-      setOcrBusy(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+        const exact = list.filter(v => v.name.trim().toLowerCase() === candidate.name.trim().toLowerCase());
+        return (exact.length ? exact : list).slice(0, 3);
+      }));
+      const unique = new Map(lists.flat().map(v => [vaultKey(v), v]));
+      setOcrMatches([...unique.values()]);
+      setOcrMessage(unique.size ? "Possible matches found. Confirm the name, network, and version before adding." : "No matching vaults were found. Try search, or retry when data sources are available.");
+    } catch (error) { setOcrMessage(error instanceof Error ? error.message : "The screenshot couldn't be read. Try another image."); }
+    finally { clearTimeout(timer); setOcrBusy(false); }
+  }
+  async function enableNotifications() {
+    try { setPermission(await requestNotificationPermission()); }
+    catch { setAlertMessage("Notifications couldn't be enabled. Check your browser's site settings."); }
+  }
+  function saveAlerts(event: React.FormEvent) {
+    event.preventDefault();
+    if (!validAlerts(draft)) { setAlertMessage("Enter thresholds between 0.1 and 100 and choose an available time window."); return; }
+    setSettings(draft);
+    try { localStorage.setItem("vaultwatch:alerts", JSON.stringify(draft)); setAlertMessage("Alert settings saved on this device."); }
+    catch { setAlertMessage("Settings apply for this session, but couldn't be saved on this device."); }
   }
 
-  return (
-    <div className="page">
-      <header>
-        <div className="title-row">
-          <h1>Vault Watch</h1>
-          <button
-            className="theme-toggle"
-            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-            aria-label="Toggle light/dark theme"
-            title="Toggle light/dark theme"
-          >
-            {theme === "dark" ? "☀️" : "🌙"}
-          </button>
-          {notificationsSupported() && (
-            <div className="notif-bell-wrap" ref={notifPanelRef}>
-              <button
-                className={`notif-bell notif-bell-${notifPermission}`}
-                onClick={() => setNotifPanelOpen((v) => !v)}
-                aria-label="Notification settings"
-                title="Notification settings"
-              >
-                🔔
-                {notifPermission === "default" && <span className="notif-bell-dot" />}
-              </button>
-              {notifPanelOpen && (
-                <div className="notif-panel">
-                  {notifPermission === "granted" && (
-                    <>
-                      <p className="hint">
-                        🔔 Browser notifications enabled — you'll get one when a watched vault drops, as
-                        long as this tab is open.
-                      </p>
-                      <button
-                        className="notif-btn"
-                        onClick={() =>
-                          sendNotification("Test notification", "This is what a vault-drop alert will look like.")
-                        }
-                      >
-                        Send test notification
-                      </button>
-                    </>
-                  )}
-                  {notifPermission === "default" && (
-                    <>
-                      <p className="hint">Get notified when a watched vault's APY or TVL drops.</p>
-                      <button className="notif-btn" onClick={enableNotifications}>
-                        Enable browser notifications
-                      </button>
-                    </>
-                  )}
-                  {notifPermission === "denied" && (
-                    <p className="hint">
-                      Notifications blocked — enable them in your browser's site settings to get alerts.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        <p className="subtitle">
-          Search vaults across Morpho, Yearn, Beefy, Aave, Compound — and the rest of DeFi (Pendle,
-          Spark, Curve, Lido, Ethena, and ~500 more via DeFiLlama) — add them to your watchlist, and see live
-          APY/TVL. Rows turn red when a vault is still meaningfully down from its recent peak (data
-          refreshes every 60s, kept only in this browser).
-        </p>
-        {notifToast && <div className="notif-toast">{notifToast}</div>}
-      </header>
+  const signals = useMemo(() => Object.fromEntries(watchlist.map(v => { const key = vaultKey(v); return [key, evaluateAlert(getHistory(key), rows[key], settings, now)]; })), [watchlist, rows, settings, now]);
+  const attention = watchlist.filter(v => signals[vaultKey(v)]?.direction === "down" || ["stale", "unavailable"].includes(dataStatus(rows[vaultKey(v)], now))).length;
+  const updated = watchlist.filter(v => dataStatus(rows[vaultKey(v)], now) === "updated").length;
+  const displayed = useMemo(() => {
+    const list = filterVaults(watchlist, filters);
+    if (sort === "name") return [...list].sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === "yield") return [...list].sort((a, b) => {
+      const ra = rows[vaultKey(a)], rb = rows[vaultKey(b)];
+      const typeA = ra?.live?.rateType ?? (a.protocol === "yearn" ? "Reported" : "APY");
+      const typeB = rb?.live?.rateType ?? (b.protocol === "yearn" ? "Reported" : "APY");
+      return typeA.localeCompare(typeB) || (dataStatus(ra, now) === "updated" ? 0 : 1) - (dataStatus(rb, now) === "updated" ? 0 : 1) || (rb?.live?.netApyPct ?? -Infinity) - (ra?.live?.netApyPct ?? -Infinity);
+    });
+    if (sort === "attention") return [...list].sort((a, b) => Number(!!signals[vaultKey(b)] || ["stale", "unavailable"].includes(dataStatus(rows[vaultKey(b)], now))) - Number(!!signals[vaultKey(a)] || ["stale", "unavailable"].includes(dataStatus(rows[vaultKey(a)], now))));
+    return list;
+  }, [watchlist, filters, sort, rows, now, signals]);
+  const highlights = useMemo(() => (["APY", "APR", "Reported"] as const).flatMap(type => {
+    const eligible = displayed.filter(v => dataStatus(rows[vaultKey(v)], now) === "updated" && rows[vaultKey(v)]?.live?.rateType === type).map(v => ({ vault: v, stats: statsInWindow(vaultKey(v), now, highlightHours * 3_600_000) })).filter(v => v.stats && v.stats.pointCount >= 2);
+    if (eligible.length < 2) return [];
+    return [{ type, high: eligible.reduce((a, b) => b.stats!.avgApy > a.stats!.avgApy ? b : a), low: eligible.reduce((a, b) => b.stats!.avgApy < a.stats!.avgApy ? b : a) }];
+  }), [displayed, rows, now, highlightHours]);
+  const selectedKey = selected ? vaultKey(selected.vault) : "";
+  const selectedRow: Reading | undefined = selected ? rows[selectedKey] ?? (selected.snapshot ? { vault: selected.vault, live: selected.snapshot, checkedAt: selected.snapshot.fetchedAt, error: selected.snapshot.stale } : undefined) : undefined;
+  const selectedLink = selected ? vaultLink(selected.vault) : null;
+  const watchedKeys = new Set(watchlist.map(vaultKey));
 
-      {howToOpen && (
-        <section className="how-to">
-          <button className="how-to-dismiss" onClick={dismissHowTo} aria-label="Dismiss">
-            ✕
-          </button>
-          <h2>How to add a vault</h2>
-          <ol>
-            <li>Search a vault name below (e.g. "Steakhouse", "Curve"), paste a whole list separated by commas (e.g. "Resolv USDC, Spark USDC Vault, Steakhouse Prime ETH") — or upload a screenshot further down instead</li>
-            <li>Check the network shown for each match, especially if the same name appears more than once</li>
-            <li>Click <strong>Add</strong> — it shows up in "Your watchlist" and starts refreshing every 60 seconds automatically</li>
-          </ol>
-        </section>
-      )}
+  return <div className="app-shell">
+    <a className="skip-link" href="#dashboard">Skip to dashboard</a>
+    <header className="app-header"><a className="brand" href="/" aria-label="Vault Watch home"><span className="brand-mark"><Icon name="explore" /></span><span>Vault Watch</span></a><div className="header-actions"><button className="button" onClick={() => setModal("import")}><Icon name="import" /><span>Import</span></button><button className="button" onClick={openAlerts}><Icon name="bell" /><span>Alerts</span></button><button className="icon-button theme-button" aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`} onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}><Icon name={theme === "dark" ? "sun" : "moon"} /></button></div></header>
+    <nav className="view-nav" aria-label="Dashboard views"><button className={view === "watchlist" ? "active" : ""} aria-current={view === "watchlist" ? "page" : undefined} onClick={() => setView("watchlist")}><Icon name="list" />Watchlist <span className="count">{watchlist.length}</span></button><button className={view === "explore" ? "active" : ""} aria-current={view === "explore" ? "page" : undefined} onClick={() => setView("explore")}><Icon name="explore" />Explore</button><span className="nav-note">Read-only · No wallet connection</span></nav>
+    <main id="dashboard">
+      {!online && <p className="notice notice-warning" role="status">You're offline. Displayed values may be out of date. Checks resume when your connection returns.</p>}
+      {storageWarning && <p className="notice notice-warning" role="alert">This browser couldn't save your watchlist. Export a backup from Import before closing this page.</p>}
+      {notice && <div className="notice notice-info" role="status"><span>{notice}</span>{removed && <button className="text-button" onClick={() => addVault(removed)}>Undo</button>}<button className="icon-button small" aria-label="Dismiss message" onClick={() => { setNotice(""); setRemoved(null); }}><Icon name="close" /></button></div>}
+      <div className="page-heading"><div><h1>{view === "watchlist" ? "Your watchlist." : "Explore vaults."}</h1><p>{view === "watchlist" ? "Watch yield changes. Know what needs a closer look." : "Discover reported yields, total deposits, and market moves."}</p></div><button className="button" disabled={view === "watchlist" ? refreshing || !watchlist.length : exploreBusy} onClick={view === "watchlist" ? refresh : () => setExploreRevision(n => n + 1)}><Icon name="refresh" className={(view === "watchlist" ? refreshing : exploreBusy) ? "spinning" : ""} />{(view === "watchlist" ? refreshing : exploreBusy) ? "Checking…" : "Check now"}</button></div>
+      {view === "watchlist" && <div className="summary-strip"><div><span>Vaults watched</span><strong>{watchlist.length.toString().padStart(2, "0")}</strong></div><div><span>Needs attention</span><strong className={attention ? "warning-text" : ""}>{attention.toString().padStart(2, "0")}</strong><small>Triggered drops or missing fresh data</small></div><div><span>Updated readings</span><strong>{updated}<small> / {watchlist.length}</small></strong><small>Checks every 60 seconds while open</small></div></div>}
+      <SearchPanel query={query} onQuery={setQuery} watchlist={watchlist} onAdd={addVault} onDetails={v => openDetails(v, v)} />
 
-      <section className="search">
-        <input
-          type="text"
-          placeholder="Search a vault — or paste a list, separated by commas…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {searching && <div className="hint">Searching…</div>}
-        {resultGroups.length > 0 && (
-          <ul className="results">
-            {resultGroups.flatMap((group) => {
-              const rows = [];
-              if (group.length > 1) {
-                rows.push(
-                  <li key={`label:${group[0].protocol}:${group[0].name}`} className="group-label-row">
-                    {group[0].name} · {group.length} networks
-                  </li>
-                );
-              }
-              rows.push(
-                ...group.map((v) => {
-                  const key = vaultKey(v);
-                  const already = watchedKeys.has(key);
-                  return (
-                    <li key={key}>
-                      <div className="result-info">
-                        <span className="name">{v.name}</span>
-                        <span className={`badge badge-${v.protocol}`}>{PROTOCOL_LABELS[v.protocol]}</span>
-                        <span className="badge-outline">{v.badge}</span>
-                        <span className={group.length > 1 ? "network network-emphasis" : "network"}>{v.network}</span>
-                      </div>
-                      <div className="result-stats">
-                        <span>{v.netApyPct.toFixed(2)}%</span>
-                        <span>${v.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                        <button disabled={already} onClick={() => addVault(v)}>
-                          {already ? "Added" : "Add"}
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })
-              );
-              return rows;
-            })}
-          </ul>
-        )}
-      </section>
+      {view === "watchlist" && <section className="watchlist-panel" aria-label="Watched vaults">
+        {watchlist.length > 0 ? <>
+          <div className="watchlist-toolbar"><FilterControls vaults={watchlist} value={filters} onChange={setFilters} label="Filter watchlist" /><label className="sort-control">Sort by<select value={sort} onChange={e => setSort(e.target.value)}><option value="recent">Added order</option><option value="attention">Needs attention</option><option value="yield">Yield, grouped by rate type</option><option value="name">Vault name</option></select></label></div>
+          <div className="section-caption"><span>{displayed.length} of {watchlist.length} vaults</span><span className="meta">Select a name for source and rate details</span></div>
+          {displayed.length === 0 && <div className="empty-inline">No watched vaults match these filters. <button className="text-button" onClick={() => setFilters(ALL_FILTERS)}>Clear filters</button></div>}
+          {displayed.length > 0 && <div className="vault-table-heading" aria-hidden="true"><span>Vault / network</span><span>Reported yield</span><span>Total deposits</span><span>Recorded trend</span><span>Data status</span><span /></div>}
+          <ul className="vault-list">{displayed.map(v => {
+            const key = vaultKey(v), row = rows[key], live = row?.live, signal = signals[key], status = dataStatus(row, now);
+            return <li className={`vault-row ${signal?.direction === "down" ? "has-drop" : ""}`} key={key}>
+              <div className="vault-identity"><button className="vault-name" onClick={() => openDetails(v)}>{v.name}</button><div className="vault-meta"><ProtocolBadge protocol={v.protocol} /><span>{networkLabel(v)}</span><span>{v.badge}</span></div>{signal && <p className={signal.direction === "down" ? "signal warning-text" : "signal success-text"}>{signal.reasons.join(" ")}</p>}</div>
+              <div className="metric"><span className="mobile-label">Reported yield</span><strong>{formatRate(live?.netApyPct)}</strong><small>{rateLabel(live?.rateType ?? (v.protocol === "yearn" ? "Reported" : "APY"))}{live?.netApyPct == null && row ? " · unavailable" : ""}</small></div>
+              <div className="metric"><span className="mobile-label">Total deposits</span><strong title={formatMoney(live?.tvlUsd, false)}>{formatMoney(live?.tvlUsd)}</strong><small>USD</small></div>
+              <div className="trend-cell"><span className="mobile-label">Recorded trend</span><Sparkline vaultKey={key} updatedAt={live?.fetchedAt ?? null} /></div>
+              <div className="status-cell"><StatusBadge status={status} /><small>Fetched {age(live?.fetchedAt, now)}</small>{status === "stale" && <small className="warning-text">Previous data; alerts paused</small>}{status === "unavailable" && <small>Some data is missing</small>}</div>
+              <button className="text-button remove-button" aria-label={`Remove ${v.name} from watchlist`} onClick={() => removeVault(v)}>Remove</button>
+            </li>;
+          })}</ul>
+          <p className="table-note">“Fetched” is when your browser received source data. Some sources are cached for up to five minutes; a new check does not mean a new reading.</p>
+          {highlights.length > 0 && <section className="highlights"><div className="section-heading"><h2>Observed yield range</h2><div className="segmented" aria-label="Recorded history window">{[1, 3, 6, 24].map(h => <button key={h} aria-pressed={highlightHours === h} className={highlightHours === h ? "active" : ""} onClick={() => setHighlightHours(h)}>{h}h</button>)}</div></div><div className="highlight-grid">{highlights.flatMap(group => ([{ label: "Highest average", value: group.high }, { label: "Lowest average", value: group.low }]).map(item => <div className="highlight-card" key={`${group.type}:${item.label}`}><span className="meta">{item.label} {rateLabel(group.type)}</span><strong>{formatRate(item.value.stats!.avgApy)}</strong><button className="vault-name" onClick={() => openDetails(item.value.vault)}>{item.value.vault.name}</button><small>{item.value.stats!.pointCount} recorded samples · first sample {age(item.value.stats!.earliestTs, now)}</small></div>))}</div><p className="table-note">Simple averages of samples recorded on this device within the selected window. Coverage may be shorter than the window. These are yield rates, not your investment returns.</p></section>}
+        </> : <div className="empty-state"><span className="empty-icon"><Icon name="list" /></span><h2>Add your first vault.</h2><p>Search for a vault above and select Watch. Its yield, deposits, and data status will appear here.</p><div><button className="button button-primary" onClick={() => { setQuery("USDC"); document.getElementById("vault-search")?.focus(); }}>Search USDC vaults</button><button className="button" onClick={() => setModal("import")}>Import a watchlist</button></div><small>Saved on this device. No account or wallet needed.</small></div>}
+      </section>}
 
-      <section className="screenshot">
-        <h2>Or add vaults from a screenshot</h2>
-        <p className="hint">
-          Upload a screenshot of a vault or portfolio page (Morpho, Yearn, Beefy, Aave, Compound — any of them) and
-          this will try to read the vault names off it and suggest matches. Runs entirely in your
-          browser — the image is never uploaded anywhere.
-        </p>
-        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleScreenshot} disabled={ocrBusy} />
-        {ocrBusy && <div className="hint">Reading screenshot…</div>}
-        {ocrError && <div className="hint error">{ocrError}</div>}
-        {ocrGroups.map((group) => {
-          const ambiguous = group.length > 1;
-          return (
-            <div key={`${group[0].protocol}:${group[0].name}`} className={ambiguous ? "ocr-group ambiguous" : "ocr-group"}>
-              {ambiguous && (
-                <p className="ocr-group-warning">
-                  ⚠️ "{group[0].name}" exists on {group.length} networks — pick the right one:
-                </p>
-              )}
-              <ul className="results">
-                {group.map((v) => {
-                  const key = vaultKey(v);
-                  const already = watchedKeys.has(key);
-                  return (
-                    <li key={key}>
-                      <div className="result-info">
-                        <span className="name">{v.name}</span>
-                        <span className={`badge badge-${v.protocol}`}>{PROTOCOL_LABELS[v.protocol]}</span>
-                        <span className="badge-outline">{v.badge}</span>
-                        <span className={ambiguous ? "network network-emphasis" : "network"}>{v.network}</span>
-                      </div>
-                      <div className="result-stats">
-                        <span>{v.netApyPct.toFixed(2)}%</span>
-                        <span>${v.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                        <button disabled={already} onClick={() => addVault(v)}>
-                          {already ? "Added" : "Add"}
-                        </button>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          );
-        })}
-      </section>
+      {view === "explore" && <div className="explore-content">
+        <details className="rate-guide"><summary>How to compare these rates</summary><p>APY includes compounding assumptions; APR does not. When the compounding basis is unconfirmed, we use “Source rate” and keep it separate. We preserve each source's reported rate type and show a base/reward breakdown when available. Different assets and strategies have different exposures. A higher rate is not a recommendation.</p><p>Total deposits (TVL) measure size, not how much can be withdrawn immediately. Rates change and do not include gains or losses in the price of the underlying asset.</p></details>
+        <section><div className="section-heading"><div><h2>Highest reported yield</h2><p>One eligible vault per integration: at least $50,000 in deposits and a reported rate between 0% and 100%.</p></div></div><div className="explore-grid">{ALL_PROTOCOLS.map(p => {
+          const v = topVaults[p];
+          return <article className="explore-card" key={p}><ProtocolBadge protocol={p} />{v ? <><button className="vault-name" onClick={() => openDetails(v, v)}>{v.name}</button><p className="explore-yield">{formatRate(v.netApyPct)}<span>{rateLabel(v.rateType)}</span></p><dl className="card-facts"><div><dt>Network</dt><dd>{networkLabel(v)}</dd></div><div><dt>Deposits</dt><dd>{formatMoney(v.tvlUsd)}</dd></div></dl><p className={v.stale ? "meta warning-text" : "meta"}>{v.stale ? "Stale data · " : "Fetched "}{age(v.fetchedAt, now)}</p><button className="button button-primary" disabled={watchedKeys.has(vaultKey(v))} onClick={() => addVault(v)}><Icon name={watchedKeys.has(vaultKey(v)) ? "check" : "plus"} />{watchedKeys.has(vaultKey(v)) ? "Watching" : "Watch vault"}</button></> : <p className="empty-card">{v === undefined ? "Checking source…" : topErrors.includes(p) ? "Source unavailable. Try checking again." : "No eligible fresh reading available."}</p>}</article>;
+        })}</div></section>
+        <section><div className="section-heading"><div><h2>Largest pools by deposits</h2><p>Largest tracked yield-paying pools in each integration, using DeFiLlama data. Size does not determine risk or withdrawal liquidity.</p></div></div>{marketError || market?.stale ? <p className="notice notice-warning">Market source unavailable. {market ? `Showing data fetched ${age(market.fetchedAt, now)}.` : "Try checking again."}</p> : market && <p className="meta">DeFiLlama · fetched {age(market.fetchedAt, now)}</p>}{!market && !marketError && <p className="notice">Loading market data…</p>}<div className="explore-grid">{market && ALL_PROTOCOLS.map(p => { const big = market.biggest[p]; return <article className="explore-card compact-card" key={p}><ProtocolBadge protocol={p} />{big ? <><h3>{big.name}</h3><p className="explore-yield">{big.tvlLabel}</p><p>{big.chain} · {formatRate(big.apyPct)} APY</p><a className="source-link" href={poolLink(big.poolId)} target="_blank" rel="noopener noreferrer">View pool <Icon name="arrow" /></a><button className="text-button" onClick={() => { setQuery(big.name); document.getElementById("vault-search")?.focus(); }}>Find matching vaults</button></> : <p className="meta">No eligible pool data.</p>}</article>; })}</div></section>
+        <section className="market-moves">{market?.window !== newsWindow && <p className="notice">{marketError ? "This time window is unavailable. Try checking again." : "Loading this time window…"}</p>}<div className="section-heading"><div><h2>Yield moves</h2><p>Reported changes for pools with at least $1 million in deposits. “pp” means percentage points.</p></div><div className="segmented" aria-label="Market change window"><button aria-pressed={newsWindow === "1d"} className={newsWindow === "1d" ? "active" : ""} onClick={() => setNewsWindow("1d")}>24h</button><button aria-pressed={newsWindow === "7d"} className={newsWindow === "7d" ? "active" : ""} onClick={() => setNewsWindow("7d")}>7d</button></div></div>{market?.window === newsWindow && <ul className="news-list">{market.news.map(item => <li key={item.id}><span className={`move-direction ${item.direction === "down" ? "warning-text" : "success-text"}`}>{item.direction === "down" ? "↓" : "↑"}</span><div><ProtocolBadge protocol={item.protocol} /><a href={poolLink(item.id)} target="_blank" rel="noopener noreferrer">{item.headline}</a><p className="meta">{item.detail}</p></div></li>)}</ul>}{market?.window === newsWindow && !market.news.length && <p className="empty-inline">No qualifying moves reported for this window.</p>}</section>
+      </div>}
+    </main>
+    <footer className="app-footer"><p>Public market data. Monitoring only; not investment advice.<br />Watchlists, history, and settings stay on this device.</p><div><a href="/blog/">Learn</a><a href="/privacy.html">Privacy</a><a href="https://x.com/vaultwatchxyz" target="_blank" rel="noopener noreferrer">@vaultwatchxyz <Icon name="arrow" /></a></div></footer>
 
-      {performers && (
-        <section className="performers">
-          <div className="performers-header">
-            <span className="performers-title">Performance highlights</span>
-            <div className="window-picker">
-              {PERFORMER_WINDOWS.map((w) => (
-                <button
-                  key={w.label}
-                  className={performerWindowMs === w.ms ? "active" : ""}
-                  onClick={() => setPerformerWindowMs(w.ms)}
-                >
-                  {w.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="performer-cards">
-            <div className="performer-card best">
-              <span className="performer-label">🏆 Best performer</span>
-              <span className="performer-name">{performers.best.row.vault.name}</span>
-              <span className="performer-apy">{performers.best.avgApy.toFixed(2)}%</span>
-              <span className="performer-streak">
-                {performerNote(performers.best.stats, performerWindowMs, performers.now, performers.best.row.apy)}
-              </span>
-            </div>
-            <div className="performer-card worst">
-              <span className="performer-label">📉 Worst performer</span>
-              <span className="performer-name">{performers.worst.row.vault.name}</span>
-              <span className="performer-apy">{performers.worst.avgApy.toFixed(2)}%</span>
-              <span className="performer-streak">
-                {performerNote(performers.worst.stats, performerWindowMs, performers.now, performers.worst.row.apy)}
-              </span>
-            </div>
-          </div>
-        </section>
-      )}
+    <Dialog open={modal === "import"} title="Bring your vaults along." onClose={() => setModal(null)} wide>
+      <p className="dialog-lead">Import an existing watchlist or find vaults in a screenshot. Your files are processed on this device.</p>
+      <div className="import-options"><section><label className="file-label" htmlFor="import-json">Import a watchlist</label><p>Choose a Vault Watch JSON export. Duplicates will be skipped.</p><input id="import-json" type="file" accept="application/json,.json" onChange={importFile} /></section><section><label className="file-label" htmlFor="import-image">Read a screenshot</label><p>Choose an image of your vault or portfolio page. Check each suggested match before adding it.</p><input id="import-image" type="file" accept="image/*" disabled={ocrBusy} onChange={readScreenshot} />{ocrBusy && <p className="notice" role="status">Reading the image on your device…</p>}</section></div>
+      {importMessage && <p className="notice" role="status">{importMessage}</p>}{ocrMessage && <p className="notice" role="status">{ocrMessage}</p>}
+      {groupVaults(ocrMatches).map(group => <div className="ocr-group" key={vaultKey(group[0])}>{group.length > 1 && <p className="notice notice-warning">{group.length} possible matches. Check the network and version.</p>}{group.map(v => <div className="import-match" key={vaultKey(v)}><div><button className="vault-name" onClick={() => openDetails(v, v)}>{v.name}</button><p className="meta">{PROTOCOL_LABELS[v.protocol]} · {networkLabel(v)} · {v.badge} · {formatRate(v.netApyPct)} {rateLabel(v.rateType)}</p></div><button className="button" disabled={watchedKeys.has(vaultKey(v))} onClick={() => addVault(v)}>{watchedKeys.has(vaultKey(v)) ? "Watching" : "Watch"}</button></div>)}</div>)}
+      <section className="backup-section"><h3>Keep a backup</h3><p>Browser data can be cleared. Save a file or a bookmark to restore your watchlist later.</p><div className="button-row"><button className="button" disabled={!watchlist.length} onClick={() => { try { exportWatchlist(watchlist); } catch { setImportMessage("The export couldn't be created. Try copying a backup link."); } }}>Export watchlist</button><button className="button" disabled={!watchlist.length} onClick={copyBackup}>Copy backup link</button></div>{backupLink && <label className="backup-link-label">Complete backup link<textarea readOnly value={backupLink} onFocus={e => e.target.select()} /></label>}</section>
+    </Dialog>
 
-      {(() => {
-        const visibleProtocols = ALL_PROTOCOLS.filter((p) => enabledProtocols[p]);
-        if (visibleProtocols.length === 0) return null;
-        return (
-          <section className="spotlight">
-            <h2>Top vault by project</h2>
-            <p className="hint">
-              The single highest-APY vault across each supported protocol right now — including ones
-              you don't hold yet — filtered to vaults with at least $50k TVL and a sane APY (some
-              protocols report broken numbers for tiny or reward-distorted vaults).
-            </p>
-            <div className="spotlight-cards">
-              {visibleProtocols.map((p) => {
-                const top = topVaults[p];
-                const key = top ? vaultKey(top) : null;
-                const already = key ? watchedKeys.has(key) : false;
-                return (
-                  <div key={p} className="spotlight-card">
-                    <span className={`badge badge-${p}`}>{PROTOCOL_LABELS[p]}</span>
-                    {top === undefined && <p className="hint">Loading…</p>}
-                    {top === null && <p className="hint">No eligible vault found right now.</p>}
-                    {top && (
-                      <>
-                        <span className="spotlight-name" title={top.name}>{top.name}</span>
-                        <span className="spotlight-apy">{top.netApyPct.toFixed(2)}%</span>
-                        <span
-                          className="spotlight-meta"
-                          title={`${top.network} · $${top.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })} TVL`}
-                        >
-                          {top.network} · ${top.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })} TVL
-                        </span>
-                        <button disabled={already} onClick={() => addVault(top)}>
-                          {already ? "Added" : "Add to watchlist"}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        );
-      })()}
+    <Dialog open={modal === "alerts"} title="Your alert controls." onClose={() => setModal(null)} wide>
+      <div className="monitor-status"><span className={`data-status ${online && watchlist.length ? "status-updated" : "status-stale"}`}>{!online ? "Offline" : watchlist.length ? "Monitoring while open" : "No vaults watched"}</span><p>Keep this tab open for website alerts. Background tabs or a sleeping device may delay checks. Stale or missing data never triggers a yield alert.</p></div>
+      <form onSubmit={saveAlerts} className="alert-form"><div className="alert-setting"><label className="check-label"><input type="checkbox" checked={draft.apyEnabled} onChange={e => setDraft(d => ({ ...d, apyEnabled: e.target.checked }))} />Yield changes</label><label>Threshold in percentage points<input aria-label="Yield threshold in percentage points" type="number" min="0.1" max="100" step="0.1" value={Number.isNaN(draft.apyPp) ? "" : draft.apyPp} onChange={e => setDraft(d => ({ ...d, apyPp: e.target.value === "" ? NaN : Number(e.target.value) }))} required /></label><p className="meta">1 percentage point means a change from 5% to 4%, for example.</p></div><div className="alert-setting"><label className="check-label"><input type="checkbox" checked={draft.tvlEnabled} onChange={e => setDraft(d => ({ ...d, tvlEnabled: e.target.checked }))} />Total deposit changes</label><label>Threshold as a percentage<input aria-label="Deposit threshold as a percentage" type="number" min="0.1" max="100" step="0.1" value={Number.isNaN(draft.tvlPct) ? "" : draft.tvlPct} onChange={e => setDraft(d => ({ ...d, tvlPct: e.target.value === "" ? NaN : Number(e.target.value) }))} required /></label><p className="meta">Measured against recorded total deposits in the selected window.</p></div><label>Compare with the recorded peak or low over<select value={draft.windowHours} onChange={e => setDraft(d => ({ ...d, windowHours: Number(e.target.value) }))}>{[1, 3, 6, 24].map(h => <option value={h} key={h}>Last {h} hour{h > 1 ? "s" : ""}</option>)}</select></label><label>Notify me about<select value={draft.direction} onChange={e => setDraft(d => ({ ...d, direction: e.target.value as AlertSettings["direction"] }))}><option value="both">Drops and rises</option><option value="drops">Drops only</option></select></label><div className="button-row alert-form-actions"><button className="button button-primary" type="submit">Save settings</button><button className="text-button" type="button" onClick={() => setDraft(DEFAULT_ALERTS)}>Restore defaults</button></div></form>
+      {alertMessage && <p className="notice" role="status">{alertMessage}</p>}
+      <section className="notification-section"><h3>Browser notifications</h3><p>{permission === "granted" ? "Permission enabled. Your device's notification and Focus settings can still affect delivery." : permission === "denied" ? "Blocked in this browser. Enable notifications in this site's browser settings to receive device alerts." : permission === "unsupported" ? "This browser doesn't support device notifications. Changes still appear in your watchlist." : "Optional: show a device notification when your thresholds are crossed."}</p>{permission === "default" && <button className="button" onClick={enableNotifications}>Enable browser notifications</button>}{permission === "granted" && <button className="button" onClick={() => { const result = fireNotification("Vault Watch test", "Your device notifications are set up. Keep the monitoring tab open."); setAlertMessage(result.attempted ? "Test sent to your browser. If it doesn't appear, check your device's notification settings." : result.error ?? "The test could not be sent."); }}>Send a test notification</button>}</section>
+      <section className="recent-alerts"><h3>Recent alerts this session</h3>{events.length ? <ul>{events.map(event => <li key={event.id}><strong>{event.name}</strong><span className="meta">{age(event.at, now)}</span><p>{event.reasons.join(" ")}</p></li>)}</ul> : <p>No threshold crossings recorded yet. History builds while your watched vaults are checked.</p>}</section>
+    </Dialog>
 
-      {(() => {
-        const visibleProtocols = ALL_PROTOCOLS.filter((p) => enabledProtocols[p]);
-        if (visibleProtocols.length === 0 || biggest === null) return null;
-        return (
-          <section className="spotlight">
-            <h2>Biggest vault by project</h2>
-            <p className="hint">
-              The largest vault in each protocol by total deposits (TVL). Size is a rough proxy for
-              liquidity — the bigger the pool, the easier it usually is to get in and out — but it
-              says nothing about yield or risk.
-            </p>
-            <div className="spotlight-cards">
-              {visibleProtocols.map((p) => {
-                const big = biggest[p];
-                return (
-                  <div key={p} className="spotlight-card">
-                    <span className={`badge badge-${p}`}>{PROTOCOL_LABELS[p]}</span>
-                    {!big && <p className="hint">No data right now.</p>}
-                    {big && (
-                      <>
-                        <span className="spotlight-name" title={big.name}>{big.name}</span>
-                        <span className="spotlight-apy spotlight-tvl">{big.tvlLabel}</span>
-                        <span
-                          className="spotlight-meta"
-                          title={`${big.chain} · $${big.tvlUsd.toLocaleString(undefined, { maximumFractionDigits: 0 })} total deposits`}
-                        >
-                          {big.chain}
-                          {big.apyPct != null ? ` · ${big.apyPct.toFixed(2)}% APY` : ""}
-                        </span>
-                        <button onClick={() => { setQuery(big.name); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
-                          Find in search
-                        </button>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        );
-      })()}
-
-      {news !== null && news.length > 0 && (
-        <section className="vault-news">
-          <h2>
-            📰 Vault news{" "}
-            <span className="window-picker">
-              <button className={newsWindow === "1d" ? "active" : ""} onClick={() => setNewsWindow("1d")}>
-                24h
-              </button>
-              <button className={newsWindow === "7d" ? "active" : ""} onClick={() => setNewsWindow("7d")}>
-                7d
-              </button>
-            </span>
-          </h2>
-          <p className="hint">
-            The biggest real yield moves of the last {newsWindow === "7d" ? "7 days" : "24 hours"} across
-            all of DeFi — computed live from market data, vaults with at least $1M TVL only.
-          </p>
-          <ul className="news-list">
-            {news.map((item) => (
-              <li key={item.id} className={`news-item news-${item.direction}`}>
-                <span className="news-arrow">{item.direction === "up" ? "▲" : "▼"}</span>
-                <span className={`badge badge-${item.protocol}`}>{PROTOCOL_LABELS[item.protocol]}</span>
-                <span className="news-headline">{item.headline}</span>
-                <span className="news-detail">{item.detail}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <section className="watchlist">
-        <div className="watchlist-header">
-          <h2>Your watchlist</h2>
-          <div className="watchlist-tools">
-            {avgApy != null && (
-              <span className="avg-apy">
-                Average Net APY: <strong>{avgApy.toFixed(2)}%</strong> across {filteredWatchlist.length} vault
-                {filteredWatchlist.length === 1 ? "" : "s"}
-              </span>
-            )}
-            {watchlist.length > 0 && (
-              <>
-                <button className="tool-btn" onClick={() => exportWatchlist(watchlist)}>
-                  Export
-                </button>
-                <button className="tool-btn" onClick={copyBackupLink}>
-                  Copy backup link
-                </button>
-              </>
-            )}
-            <button className="tool-btn" onClick={() => importInputRef.current?.click()}>
-              Import
-            </button>
-            <input
-              ref={importInputRef}
-              type="file"
-              accept="application/json,.json"
-              onChange={handleImportFile}
-              style={{ display: "none" }}
-            />
-          </div>
-        </div>
-        {importStatus && <p className="hint">{importStatus}</p>}
-        {watchlist.length > 0 && (
-          <div className="protocol-filter">
-            <span className="filter-label">Filter by project:</span>
-            {(Object.keys(PROTOCOL_LABELS) as Protocol[])
-              .filter((p) => protocolCounts[p] > 0)
-              .map((p) => (
-                <button
-                  key={p}
-                  className={`badge badge-${p} filter-chip ${enabledProtocols[p] ? "" : "off"}`}
-                  onClick={() => toggleProtocol(p)}
-                >
-                  {PROTOCOL_LABELS[p]} ({protocolCounts[p]})
-                </button>
-              ))}
-          </div>
-        )}
-        {watchlist.length === 0 && <p className="hint">No vaults yet — search above and add some.</p>}
-        {watchlist.length > 0 && filteredWatchlist.length === 0 && (
-          <p className="hint">No vaults match the selected filter.</p>
-        )}
-        {filteredWatchlist.length > 0 && (
-          <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Vault</th>
-                <th>Protocol</th>
-                <th>Network</th>
-                <th className="sortable" onClick={toggleApySort}>
-                  Net APY {apySortDir === "desc" ? "▼" : apySortDir === "asc" ? "▲" : "⇅"}
-                </th>
-                <th>Trend</th>
-                <th>TVL</th>
-                <th>Last checked</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedWatchlist.map((v) => {
-                const key = vaultKey(v);
-                const row = rows[key];
-                return (
-                  <tr key={key} className={row?.warn ? "warn" : row?.improved ? "improved" : ""}>
-                    <td>{v.name}</td>
-                    <td>
-                      <span className={`badge badge-${v.protocol}`}>{PROTOCOL_LABELS[v.protocol]}</span>
-                    </td>
-                    <td>{v.network}</td>
-                    <td>
-                      {row?.apy != null ? `${row.apy.toFixed(2)}%` : row?.error ? "error" : "…"}
-                      {row?.warn && row.peakApy != null && (
-                        <span className="down-note"> ↓ from {row.peakApy.toFixed(2)}% peak</span>
-                      )}
-                      {row?.improved && row.troughApy != null && (
-                        <span className="up-note"> ↑ from {row.troughApy.toFixed(2)}% low</span>
-                      )}
-                    </td>
-                    <td>
-                      <Sparkline vaultKey={key} updatedAt={row?.lastChecked ?? null} />
-                    </td>
-                    <td>{row?.tvl != null ? `$${row.tvl.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "…"}</td>
-                    <td>{row?.lastChecked ? new Date(row.lastChecked).toLocaleTimeString() : "…"}</td>
-                    <td>
-                      <button className="remove" onClick={() => removeVault(key)}>
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          </div>
-        )}
-      </section>
-
-      <footer>
-        <p>
-          Data from Morpho, Yearn, Beefy, and DefiLlama (Aave, Compound, and all other DeFi projects)
-          public APIs. Nothing here is
-          investment advice — this is a monitoring tool only. Your watchlist is stored locally in your
-          browser, not on any server.
-        </p>
-        <p className="footer-social">
-          <a href="/blog/">📖 Blog</a>
-          {" · "}
-          <a href="https://x.com/vaultwatchxyz" target="_blank" rel="noopener noreferrer">
-            𝕏 @vaultwatchxyz
-          </a>
-          {" · "}
-          <a href="/privacy.html">Privacy</a>
-        </p>
-      </footer>
-    </div>
-  );
+    <Dialog open={selected !== null} title={selected?.vault.name ?? "Vault details"} onClose={() => setSelected(null)} wide>
+      {selected && <><div className="detail-meta"><ProtocolBadge protocol={selected.vault.protocol} /><span>{networkLabel(selected.vault)}</span><span>{selected.vault.badge}</span><StatusBadge status={dataStatus(selectedRow, now)} /></div><div className="detail-metrics"><div><span>Reported yield</span><strong>{formatRate(selectedRow?.live?.netApyPct)} <small>{rateLabel(selectedRow?.live?.rateType ?? (selected.vault.protocol === "yearn" ? "Reported" : "APY"))}</small></strong></div><div><span>Total deposits</span><strong>{formatMoney(selectedRow?.live?.tvlUsd, false)}</strong></div></div>
+      {dataStatus(selectedRow, now) === "stale" && <p className="notice notice-warning">This is a previous reading. Refresh failed or the data is too old. Yield alerts are paused until fresh data returns.</p>}{dataStatus(selectedRow, now) === "unavailable" && <p className="notice notice-warning">Some source data is unavailable. Missing values are not zero.</p>}
+      <dl className="detail-facts"><div><dt>Source</dt><dd>{sourceName(selected.vault)}</dd></div><div><dt>Source response fetched</dt><dd>{age(selectedRow?.live?.fetchedAt, now)}</dd></div><div><dt>Last check attempted</dt><dd>{age(selectedRow?.checkedAt, now)}</dd></div><div><dt>Asset / symbol</dt><dd>{selected.vault.assetSymbol || selected.vault.symbol}</dd></div><div><dt>Base APY</dt><dd>{selectedRow?.live?.baseApyPct == null ? "Not provided" : formatRate(selectedRow.live.baseApyPct)}</dd></div><div><dt>Reward APY</dt><dd>{selectedRow?.live?.rewardApyPct == null ? "Not provided" : formatRate(selectedRow.live.rewardApyPct)}</dd></div></dl>
+      <p className="detail-explanation">{selectedRow?.live?.rateType === "Reported" ? "The compounding basis is unconfirmed for this feed. This is the source-reported rate, shown without conversion to APR or APY." : "APY is the annualised rate reported by the source, using that source's compounding assumptions."} Base and reward figures are shown only when supplied. Rates can change, and totals may differ because of rounding or source methodology.</p>
+      <label className="identifier-label">{["aave", "compound", "defi"].includes(selected.vault.protocol) ? "DeFiLlama pool ID" : "Vault contract address"}<input readOnly value={selected.vault.address} onFocus={e => e.target.select()} /></label>
+      {signals[selectedKey] && <p className="notice notice-warning">{signals[selectedKey]!.reasons.join(" ")}</p>}
+      <div className="detail-actions">{selectedLink && <a className="button" href={selectedLink.url} target="_blank" rel="noopener noreferrer">{selectedLink.label}<Icon name="arrow" /></a>}<button className="button button-primary" disabled={watchedKeys.has(selectedKey)} onClick={() => addVault(selected.vault)}>{watchedKeys.has(selectedKey) ? "In your watchlist" : "Watch this vault"}</button></div><p className="table-note">A higher yield does not establish safety. Total deposits are not the amount available for immediate withdrawal.</p></>}
+    </Dialog>
+  </div>;
 }
-
-export default App;

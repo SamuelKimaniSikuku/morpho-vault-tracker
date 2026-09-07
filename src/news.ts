@@ -1,4 +1,4 @@
-import { loadAllPools, type LlamaPool } from "./defillama";
+import { loadAllPools, loadPoolSnapshot, type LlamaPool } from "./defillama";
 import { prettyProject } from "./defi";
 import type { Protocol } from "./types";
 
@@ -63,6 +63,7 @@ function toItem(p: LlamaPool, window: NewsWindow): NewsItem {
 }
 
 export interface BiggestVault {
+  poolId: string;
   protocol: Protocol;
   name: string;
   chain: string;
@@ -71,12 +72,10 @@ export interface BiggestVault {
   apyPct: number | null;
 }
 
-/** The single largest vault (by total deposits / TVL) in each protocol.
- * Size is the market's liquidity vote: big vaults are where deposits sit
- * and where exits are easiest. APY is shown but sanity-capped the same
- * way as everywhere else so a bugged rate can't ride in on a big vault. */
-export async function getBiggestVaults(): Promise<Partial<Record<Protocol, BiggestVault>>> {
-  const pools = await loadAllPools();
+/** Largest eligible tracked pool by deposits. TVL does not establish
+ * withdrawal liquidity or safety. */
+export async function getBiggestVaults(pools = undefined as LlamaPool[] | undefined): Promise<Partial<Record<Protocol, BiggestVault>>> {
+  pools ??= await loadAllPools();
   const best: Partial<Record<Protocol, LlamaPool>> = {};
   for (const p of pools) {
     const protocol = PROJECT_TO_PROTOCOL[p.project] ?? "defi";
@@ -91,6 +90,7 @@ export async function getBiggestVaults(): Promise<Partial<Record<Protocol, Bigge
     const saneApy = p.apy != null && p.apy >= 0 && p.apy <= MAX_SANE_APY_PCT ? p.apy : null;
     const baseName = p.poolMeta ? `${p.symbol} (${p.poolMeta})` : p.symbol;
     out[protocol] = {
+      poolId: p.pool,
       protocol,
       name: protocol === "defi" ? `${prettyProject(p.project)} ${baseName}` : baseName,
       chain: p.chain,
@@ -102,8 +102,8 @@ export async function getBiggestVaults(): Promise<Partial<Record<Protocol, Bigge
   return out;
 }
 
-export async function getVaultNews(window: NewsWindow = "1d"): Promise<NewsItem[]> {
-  const pools = await loadAllPools();
+export async function getVaultNews(window: NewsWindow = "1d", pools = undefined as LlamaPool[] | undefined): Promise<NewsItem[]> {
+  pools ??= await loadAllPools();
   const moveOf = (p: LlamaPool) => (window === "7d" ? p.apyPct7D : p.apyPct1D);
   const eligible = pools.filter(
     (p) =>
@@ -118,4 +118,10 @@ export async function getVaultNews(window: NewsWindow = "1d"): Promise<NewsItem[
     .sort((a, b) => Math.abs(moveOf(b)!) - Math.abs(moveOf(a)!))
     .slice(0, MAX_ITEMS)
     .map((p) => toItem(p, window));
+}
+
+export async function getMarketOverview(window: NewsWindow) {
+  const snapshot = await loadPoolSnapshot();
+  const [news, biggest] = await Promise.all([getVaultNews(window, snapshot.data), getBiggestVaults(snapshot.data)]);
+  return { window, news, biggest, fetchedAt: snapshot.fetchedAt, stale: snapshot.stale };
 }
