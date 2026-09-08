@@ -195,6 +195,56 @@ input::file-selector-button { background: var(--accent-bg); color: var(--accent)
 .identifier-label input { display: block; width: 100%; margin-top: 8px; font: .8125rem/1.5 ui-monospace, monospace; }
 .detail-actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-top: 25px; }
 .spinning { animation: spin 1.5s linear infinite; }
+.fixed-intro { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 22px 24px; margin-bottom: 24px; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 12px; background: var(--surface); }
+.fixed-intro h2 { font-size: 1.25rem; margin: 10px 0 7px; }
+.fixed-intro p { max-width: 690px; color: var(--muted); line-height: 1.7; }
+.fixed-intro > .button { flex-shrink: 0; }
+.fixed-badge { display: inline-block; color: var(--accent); font-size: .875rem; font-weight: 600; }
+.fixed-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.fixed-filters label { display: flex; flex: 1 1 150px; min-width: 0; flex-direction: column; gap: 7px; font-size: .875rem; color: var(--muted); }
+.fixed-filters .fixed-search { flex: 2 1 250px; }
+.fixed-row { display: grid; grid-template-columns: minmax(210px, 2fr) minmax(128px, 1.1fr) minmax(90px, .85fr) minmax(90px, .85fr) minmax(120px, 1fr) 130px; gap: 20px; align-items: center; padding: 20px; }
+.fixed-table-heading { color: var(--muted); font-size: .875rem; padding-top: 12px; padding-bottom: 12px; }
+.fixed-list { list-style: none; padding: 0; margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.fixed-list .fixed-row + .fixed-row { border-top: 1px solid var(--border); }
+.fixed-list .metric { min-width: 0; }
+.fixed-list .metric strong { overflow-wrap: anywhere; }
+.fixed-against { color: var(--muted); font-weight: 400; font-size: .875rem; }
+.fixed-network { color: var(--text); }
+.fixed-market-id { color: var(--muted); font: .75rem/1.5 ui-monospace, monospace; display: block; margin-top: 8px; }
+.fixed-list .fixed-date { font-size: 1rem; }
+.fixed-actions { display: flex; flex-direction: column; align-items: stretch; gap: 9px; }
+.fixed-actions .data-status { justify-content: center; text-align: center; }
+.fixed-actions > small { text-align: center; }
+.fixed-guide { margin-top: 25px; }
+.fixed-guide p { margin: 12px 0; }
+.fixed-guide a { font-size: .875rem; }
+.fixed-watch-maturity { color: var(--muted); font-size: .875rem; margin-top: 7px; }
+.fixed-source-note { margin-top: 10px; }
+.status-no-offers, .status-matured, .status-unlisted { color: var(--muted); background: var(--surface-soft); }
+@media (max-width: 1150px) {
+  .fixed-row { grid-template-columns: minmax(170px, 2fr) minmax(110px, 1.15fr) minmax(78px, .8fr) minmax(78px, .8fr) minmax(100px, 1fr) 114px; gap: 12px; padding: 18px 14px; }
+  .fixed-intro { flex-wrap: wrap; }
+}
+@media (max-width: 950px) {
+  .fixed-table-heading { display: none; }
+  .fixed-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; overflow: visible; border: 0; background: none; }
+  .fixed-list .fixed-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 12px; padding: 20px; background: var(--surface); gap: 20px 14px; }
+  .fixed-list .mobile-label { display: block; color: var(--muted); font-size: .875rem; margin-bottom: 5px; }
+  .fixed-identity { grid-column: 1 / -1; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
+  .fixed-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; flex-direction: row; align-items: center; }
+  .fixed-actions > .button { flex: 1; }
+  .fixed-actions > small { width: 100%; text-align: left; }
+}
+@media (max-width: 600px) {
+  .fixed-list { grid-template-columns: 1fr; }
+  .fixed-intro { padding: 20px; }
+  .fixed-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fixed-filters .fixed-search { grid-column: 1 / -1; }
+  .view-nav { gap: 12px; }
+  .view-nav > button { font-size: .875rem; gap: 6px; }
+  .view-nav > button > svg { display: none; }
+}
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 1100px) {
   .app-shell { padding: 0 24px; }
@@ -213,7 +263,7 @@ input::file-selector-button { background: var(--accent-bg); color: var(--accent)
   .header-actions > .button { padding: 9px; }
   .header-actions > .button > svg { display: none; }
   .header-actions > .icon-button { border: 0; background: transparent; width: 38px; padding: 6px; }
-  .view-nav { gap: 24px; }
+  .view-nav { gap: 12px; }
   main { padding-top: 24px; }
   .page-heading { gap: 12px; align-items: flex-start; }
   .page-heading > .button { flex-shrink: 0; padding: 10px; }
