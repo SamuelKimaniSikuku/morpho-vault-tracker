@@ -1,7 +1,15 @@
 import type { WatchedVault } from "./types";
-export function sourceName(v: WatchedVault) { return v.fixedTerm ? "Morpho Midnight" : v.protocol === "morpho" ? "Morpho" : v.protocol === "yearn" ? "Yearn" : v.protocol === "beefy" ? "Beefy" : "DeFiLlama"; }
+export function sourceName(v: WatchedVault) { return v.protocol === "pendle" ? "Pendle" : v.protocol === "spectra" ? "Spectra" : v.fixedTerm ? "Morpho Midnight" : v.protocol === "morpho" ? "Morpho" : v.protocol === "yearn" ? "Yearn" : v.protocol === "beefy" ? "Beefy" : "DeFiLlama"; }
+export function marketSizeLabel(v: WatchedVault) { return v.fixedTerm?.principalToken ? "Pool liquidity" : v.fixedTerm ? "Outstanding loans" : "Total deposits"; }
+export function fixedRateType(v: WatchedVault) { return v.fixedTerm?.principalToken ? "Fixed APY" : "Fixed APR"; }
 export function poolLink(id: string) { return `https://defillama.com/yields/pool/${encodeURIComponent(id)}`; }
 export function vaultLink(v: WatchedVault): { url: string; label: string } | null {
+  if (v.protocol === "pendle" || v.protocol === "spectra") {
+    if (!v.fixedTerm?.principalToken || ![1, 8453].includes(v.chainId) || !/^0x[\da-fA-F]{40}$/.test(v.address)) return null;
+    return v.protocol === "pendle"
+      ? { url: `https://app.pendle.finance/trade/markets/${v.address}/swap?view=pt&chain=${v.chainId === 1 ? "ethereum" : "base"}`, label: "Open market on Pendle" }
+      : { url: `https://app.spectra.finance/fixed-rate/${v.chainId === 1 ? "eth" : "base"}:${v.address}`, label: "Open market on Spectra" };
+  }
   if (v.fixedTerm) return v.protocol === "morpho" && [1, 8453].includes(v.chainId) && /^0x[\da-fA-F]{64}$/.test(v.address)
     ? { url: `https://markets.morpho.org/fixed/${v.chainId === 1 ? "ethereum" : "base"}/${v.address}`, label: "Open market on Morpho" } : null;
   if (v.protocol === "defi" || v.protocol === "aave" || v.protocol === "compound") return { url: poolLink(v.address), label: "View pool on DeFiLlama" };

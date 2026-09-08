@@ -1,9 +1,11 @@
-export type Protocol = "morpho" | "yearn" | "beefy" | "aave" | "compound" | "defi";
+export type Protocol = "morpho" | "yearn" | "beefy" | "aave" | "compound" | "defi" | "pendle" | "spectra";
 
 export interface FixedTerm {
   maturity: number; // Unix seconds, UTC
   loanToken: string;
   collaterals: { address: string; symbol: string; lltvPct: number | null }[];
+  principalToken?: string; // PT contract; address on the watched item identifies its market/pool.
+  yieldAsset?: string; // Yield-bearing asset; loanToken/assetSymbol identify the accounting asset.
 }
 
 export interface FixedQuotes {
@@ -14,6 +16,7 @@ export interface FixedQuotes {
   settlementFeePct: number | null;
   continuousFeeAprPct: number | null;
   listed: boolean;
+  ptPrice?: number | null; // Price in the accounting asset, when supplied by the source.
 }
 
 export interface WatchedVault {
@@ -27,7 +30,7 @@ export interface WatchedVault {
   badge: string; // short display tag: "V2", "V1", "v3.0.4", "Beefy"
   morphoVersion?: "v1" | "v2"; // only set when protocol === "morpho"
   beefyId?: string; // only set when protocol === "beefy" - the key its APY/TVL endpoints use
-  fixedTerm?: FixedTerm; // Morpho Midnight market ID is stored in address (bytes32)
+  fixedTerm?: FixedTerm; // Morpho uses a bytes32 market ID; Pendle/Spectra use a pool address.
 }
 
 export interface LiveState {
@@ -36,7 +39,7 @@ export interface LiveState {
   /** When this browser successfully received the underlying API response. */
   fetchedAt: number;
   stale: boolean;
-  rateType: "APY" | "APR" | "Reported" | "Fixed APR";
+  rateType: "APY" | "APR" | "Reported" | "Fixed APR" | "Fixed APY";
   fixedQuotes?: FixedQuotes;
   baseApyPct?: number | null;
   rewardApyPct?: number | null;

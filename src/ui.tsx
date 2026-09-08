@@ -3,8 +3,9 @@ import type { Protocol, WatchedVault } from "./types";
 import type { DataStatus } from "./monitoring";
 import { assetTokens, networkLabel, ALL_FILTERS, type VaultFilters } from "./filters";
 
-export const PROTOCOL_LABELS: Record<Protocol, string> = { morpho: "Morpho", yearn: "Yearn", beefy: "Beefy", aave: "Aave", compound: "Compound", defi: "Other DeFi" };
+export const PROTOCOL_LABELS: Record<Protocol, string> = { morpho: "Morpho", yearn: "Yearn", beefy: "Beefy", aave: "Aave", compound: "Compound", defi: "Other DeFi", pendle: "Pendle", spectra: "Spectra" };
 export const ALL_PROTOCOLS = Object.keys(PROTOCOL_LABELS) as Protocol[];
+export const VARIABLE_PROTOCOLS = ALL_PROTOCOLS.filter(p => p !== "pendle" && p !== "spectra");
 const paths = {
   search: "m21 21-4.4-4.4M19 10.5a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0Z",
   plus: "M12 5v14M5 12h14", close: "m6 6 12 12M6 18 18 6",
@@ -22,7 +23,7 @@ export function Icon({ name, className = "" }: { name: keyof typeof paths; class
 }
 export function ProtocolBadge({ protocol }: { protocol: Protocol }) { return <span className={`protocol-badge protocol-${protocol}`}>{PROTOCOL_LABELS[protocol]}</span>; }
 export function StatusBadge({ status }: { status: DataStatus }) {
-  const labels = { updated: "Updated", stale: "Stale", unavailable: "Unavailable", loading: "Checking", "no-offers": "No lend offers", matured: "Matured", unlisted: "Not listed" };
+  const labels = { updated: "Updated", stale: "Stale", unavailable: "Unavailable", loading: "Checking", "no-offers": "No lend offers", "no-quote": "No quote", matured: "Matured", unlisted: "Not listed" };
   return <span className={`data-status status-${status}`}>{labels[status]}</span>;
 }
 export function rateLabel(type: string) { return type === "Reported" ? "Source rate" : type; }
