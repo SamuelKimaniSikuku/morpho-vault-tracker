@@ -1,7 +1,9 @@
 import type { WatchedVault } from "./types";
-export function sourceName(v: WatchedVault) { return v.protocol === "morpho" ? "Morpho" : v.protocol === "yearn" ? "Yearn" : v.protocol === "beefy" ? "Beefy" : "DeFiLlama"; }
+export function sourceName(v: WatchedVault) { return v.fixedTerm ? "Morpho Midnight" : v.protocol === "morpho" ? "Morpho" : v.protocol === "yearn" ? "Yearn" : v.protocol === "beefy" ? "Beefy" : "DeFiLlama"; }
 export function poolLink(id: string) { return `https://defillama.com/yields/pool/${encodeURIComponent(id)}`; }
 export function vaultLink(v: WatchedVault): { url: string; label: string } | null {
+  if (v.fixedTerm) return v.protocol === "morpho" && [1, 8453].includes(v.chainId) && /^0x[\da-fA-F]{64}$/.test(v.address)
+    ? { url: `https://markets.morpho.org/fixed/${v.chainId === 1 ? "ethereum" : "base"}/${v.address}`, label: "Open market on Morpho" } : null;
   if (v.protocol === "defi" || v.protocol === "aave" || v.protocol === "compound") return { url: poolLink(v.address), label: "View pool on DeFiLlama" };
   if (v.protocol === "beefy" && v.beefyId) return { url: `https://app.beefy.com/vault/${encodeURIComponent(v.beefyId)}`, label: "Open vault on Beefy" };
   if (!/^0x[\da-fA-F]{40}$/.test(v.address) || !Number.isInteger(v.chainId) || v.chainId <= 0) return null;

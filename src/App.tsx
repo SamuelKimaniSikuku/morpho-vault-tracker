@@ -15,6 +15,8 @@ import { SearchPanel } from "./SearchPanel";
 import { ScreenshotResults } from "./ScreenshotResults";
 import type { ScreenshotRow } from "./screenshot-matching";
 import { Sparkline } from "./Sparkline";
+import { FixedVaults, FixedMarketDetails } from "./FixedVaults";
+import { maturityDate, maturityRemaining } from "./midnight";
 import "./App.css";
 
 function initialWatchlist() {
@@ -26,7 +28,7 @@ function initialWatchlist() {
 }
 
 export default function App() {
-  const [view, setView] = useState<"watchlist" | "explore">("watchlist");
+  const [view, setView] = useState<"watchlist" | "explore" | "fixed">(() => new URLSearchParams(window.location.search).get("view") === "fixed" ? "fixed" : "watchlist");
   const [watchlist, setWatchlist] = useState(initialWatchlist);
   const watchRef = useRef(watchlist); watchRef.current = watchlist;
   const [query, setQuery] = useState("");
@@ -50,6 +52,8 @@ export default function App() {
   const [market, setMarket] = useState<Awaited<ReturnType<typeof getMarketOverview>> | null>(null);
   const [marketError, setMarketError] = useState(false);
   const [exploreBusy, setExploreBusy] = useState(false);
+  const [fixedBusy, setFixedBusy] = useState(false);
+  const [fixedRevision, setFixedRevision] = useState(0);
   const [exploreRevision, setExploreRevision] = useState(0);
   const [newsWindow, setNewsWindow] = useState<NewsWindow>("1d");
   const [ocrBusy, setOcrBusy] = useState(false);
@@ -61,6 +65,11 @@ export default function App() {
   const [alertMessage, setAlertMessage] = useState("");
 
   useEffect(() => { applyTheme(theme); }, [theme]);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (view === "fixed") url.searchParams.set("view", "fixed"); else url.searchParams.delete("view");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  }, [view]);
   useEffect(() => { setStorageWarning(!saveWatchlist(watchlist)); }, [watchlist]);
   useEffect(() => {
     if (watchlistFromHash(window.location.hash)) {
@@ -103,7 +112,7 @@ export default function App() {
   }, [view, newsWindow, exploreRevision]);
 
   function addVault(v: WatchedVault) {
-    const saved: WatchedVault = { protocol: v.protocol, address: v.address, chainId: v.chainId, network: v.network, name: v.name, symbol: v.symbol, assetSymbol: v.assetSymbol, badge: v.badge, morphoVersion: v.morphoVersion, beefyId: v.beefyId };
+    const saved: WatchedVault = { protocol: v.protocol, address: v.address, chainId: v.chainId, network: v.network, name: v.name, symbol: v.symbol, assetSymbol: v.assetSymbol, badge: v.badge, morphoVersion: v.morphoVersion, beefyId: v.beefyId, fixedTerm: v.fixedTerm };
     setWatchlist(previous => previous.some(item => vaultKey(item) === vaultKey(v)) ? previous : [...previous, saved]);
     setRemoved(null); setNotice(`${v.name} added to your watchlist.`);
   }
@@ -168,14 +177,14 @@ export default function App() {
     if (sort === "name") return [...list].sort((a, b) => a.name.localeCompare(b.name));
     if (sort === "yield") return [...list].sort((a, b) => {
       const ra = rows[vaultKey(a)], rb = rows[vaultKey(b)];
-      const typeA = ra?.live?.rateType ?? (a.protocol === "yearn" ? "Reported" : "APY");
-      const typeB = rb?.live?.rateType ?? (b.protocol === "yearn" ? "Reported" : "APY");
+      const typeA = ra?.live?.rateType ?? (a.fixedTerm ? "Fixed APR" : a.protocol === "yearn" ? "Reported" : "APY");
+      const typeB = rb?.live?.rateType ?? (b.fixedTerm ? "Fixed APR" : b.protocol === "yearn" ? "Reported" : "APY");
       return typeA.localeCompare(typeB) || (dataStatus(ra, now) === "updated" ? 0 : 1) - (dataStatus(rb, now) === "updated" ? 0 : 1) || (rb?.live?.netApyPct ?? -Infinity) - (ra?.live?.netApyPct ?? -Infinity);
     });
     if (sort === "attention") return [...list].sort((a, b) => Number(!!signals[vaultKey(b)] || ["stale", "unavailable"].includes(dataStatus(rows[vaultKey(b)], now))) - Number(!!signals[vaultKey(a)] || ["stale", "unavailable"].includes(dataStatus(rows[vaultKey(a)], now))));
     return list;
   }, [watchlist, filters, sort, rows, now, signals]);
-  const highlights = useMemo(() => (["APY", "APR", "Reported"] as const).flatMap(type => {
+  const highlights = useMemo(() => (["APY", "APR", "Reported", "Fixed APR"] as const).flatMap(type => {
     const eligible = displayed.filter(v => dataStatus(rows[vaultKey(v)], now) === "updated" && rows[vaultKey(v)]?.live?.rateType === type).map(v => ({ vault: v, stats: statsInWindow(vaultKey(v), now, highlightHours * 3_600_000) })).filter(v => v.stats && v.stats.pointCount >= 2);
     if (eligible.length < 2) return [];
     return [{ type, high: eligible.reduce((a, b) => b.stats!.avgApy > a.stats!.avgApy ? b : a), low: eligible.reduce((a, b) => b.stats!.avgApy < a.stats!.avgApy ? b : a) }];
@@ -184,32 +193,35 @@ export default function App() {
   const selectedRow: Reading | undefined = selected ? rows[selectedKey] ?? (selected.snapshot ? { vault: selected.vault, live: selected.snapshot, checkedAt: selected.snapshot.fetchedAt, error: selected.snapshot.stale } : undefined) : undefined;
   const selectedLink = selected ? vaultLink(selected.vault) : null;
   const watchedKeys = new Set(watchlist.map(vaultKey));
+  const checking = view === "fixed" ? fixedBusy : view === "watchlist" ? refreshing : exploreBusy;
 
   return <div className="app-shell">
     <a className="skip-link" href="#dashboard">Skip to dashboard</a>
     <header className="app-header"><a className="brand" href="/" aria-label="Vault Watch home"><span className="brand-mark"><Icon name="explore" /></span><span>Vault Watch</span></a><div className="header-actions"><button className="button" onClick={() => setModal("import")}><Icon name="import" /><span>Import</span></button><button className="button" onClick={openAlerts}><Icon name="bell" /><span>Alerts</span></button><button className="icon-button theme-button" aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`} onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}><Icon name={theme === "dark" ? "sun" : "moon"} /></button></div></header>
-    <nav className="view-nav" aria-label="Dashboard views"><button className={view === "watchlist" ? "active" : ""} aria-current={view === "watchlist" ? "page" : undefined} onClick={() => setView("watchlist")}><Icon name="list" />Watchlist <span className="count">{watchlist.length}</span></button><button className={view === "explore" ? "active" : ""} aria-current={view === "explore" ? "page" : undefined} onClick={() => setView("explore")}><Icon name="explore" />Explore</button><span className="nav-note">Read-only · No wallet connection</span></nav>
+    <nav className="view-nav" aria-label="Dashboard views"><button className={view === "watchlist" ? "active" : ""} aria-current={view === "watchlist" ? "page" : undefined} onClick={() => setView("watchlist")}><Icon name="list" />Watchlist <span className="count">{watchlist.length}</span></button><button className={view === "explore" ? "active" : ""} aria-current={view === "explore" ? "page" : undefined} onClick={() => setView("explore")}><Icon name="explore" />Explore</button><button className={view === "fixed" ? "active" : ""} aria-current={view === "fixed" ? "page" : undefined} onClick={() => setView("fixed")}><Icon name="moon" />Fixed Vaults</button><span className="nav-note">Read-only · No wallet connection</span></nav>
     <main id="dashboard">
       {!online && <p className="notice notice-warning" role="status">You're offline. Displayed values may be out of date. Checks resume when your connection returns.</p>}
       {storageWarning && <p className="notice notice-warning" role="alert">This browser couldn't save your watchlist. Export a backup from Import before closing this page.</p>}
       {notice && <div className="notice notice-info" role="status"><span>{notice}</span>{removed && <button className="text-button" onClick={() => addVault(removed)}>Undo</button>}<button className="icon-button small" aria-label="Dismiss message" onClick={() => { setNotice(""); setRemoved(null); }}><Icon name="close" /></button></div>}
-      <div className="page-heading"><div><h1>{view === "watchlist" ? "Your watchlist." : "Explore vaults."}</h1><p>{view === "watchlist" ? "Watch yield changes. Know what needs a closer look." : "Discover reported yields, total deposits, and market moves."}</p></div><button className="button" disabled={view === "watchlist" ? refreshing || !watchlist.length : exploreBusy} onClick={view === "watchlist" ? refresh : () => setExploreRevision(n => n + 1)}><Icon name="refresh" className={(view === "watchlist" ? refreshing : exploreBusy) ? "spinning" : ""} />{(view === "watchlist" ? refreshing : exploreBusy) ? "Checking…" : "Check now"}</button></div>
+      <div className="page-heading"><div><h1>{view === "watchlist" ? "Your watchlist." : view === "fixed" ? "Fixed Vaults." : "Explore vaults."}</h1><p>{view === "watchlist" ? "Watch yield changes. Know what needs a closer look." : view === "fixed" ? "Explore Morpho Midnight on Ethereum and Base." : "Discover reported yields, total deposits, and market moves."}</p></div><button className="button" disabled={checking || (view === "watchlist" && !watchlist.length)} onClick={view === "watchlist" ? refresh : view === "fixed" ? () => setFixedRevision(n => n + 1) : () => setExploreRevision(n => n + 1)}><Icon name="refresh" className={checking ? "spinning" : ""} />{checking ? "Checking…" : "Check now"}</button></div>
       {view === "watchlist" && <div className="summary-strip"><div><span>Vaults watched</span><strong>{watchlist.length.toString().padStart(2, "0")}</strong></div><div><span>Needs attention</span><strong className={attention ? "warning-text" : ""}>{attention.toString().padStart(2, "0")}</strong><small>Triggered drops or missing fresh data</small></div><div><span>Updated readings</span><strong>{updated}<small> / {watchlist.length}</small></strong><small>Checks every 60 seconds while open</small></div></div>}
-      <SearchPanel query={query} onQuery={setQuery} watchlist={watchlist} onAdd={addVault} onDetails={v => openDetails(v, v)} onScreenshot={() => screenshotInput.current?.click()} screenshotBusy={ocrBusy} />
+      {view !== "fixed" && <SearchPanel query={query} onQuery={setQuery} watchlist={watchlist} onAdd={addVault} onDetails={v => openDetails(v, v)} onScreenshot={() => screenshotInput.current?.click()} screenshotBusy={ocrBusy} />}
       <input ref={screenshotInput} type="file" accept="image/*" hidden aria-label="Upload screenshot" disabled={ocrBusy} onChange={readScreenshot} />
+
+      {view === "fixed" && <FixedVaults watched={watchedKeys} onAdd={addVault} onDetails={v => openDetails(v, v)} revision={fixedRevision} onBusy={setFixedBusy} now={now} />}
 
       {view === "watchlist" && <section className="watchlist-panel" aria-label="Watched vaults">
         {watchlist.length > 0 ? <>
-          <div className="watchlist-toolbar"><FilterControls vaults={watchlist} value={filters} onChange={setFilters} label="Filter watchlist" /><label className="sort-control">Sort by<select value={sort} onChange={e => setSort(e.target.value)}><option value="recent">Added order</option><option value="attention">Needs attention</option><option value="yield">Yield, grouped by rate type</option><option value="name">Vault name</option></select></label></div>
+          <div className="watchlist-toolbar"><FilterControls vaults={watchlist} value={filters} onChange={setFilters} label="Filter watchlist" categories /><label className="sort-control">Sort by<select value={sort} onChange={e => setSort(e.target.value)}><option value="recent">Added order</option><option value="attention">Needs attention</option><option value="yield">Yield, grouped by rate type</option><option value="name">Vault name</option></select></label></div>
           <div className="section-caption"><span>{displayed.length} of {watchlist.length} vaults</span><span className="meta">Select a name for source and rate details</span></div>
           {displayed.length === 0 && <div className="empty-inline">No watched vaults match these filters. <button className="text-button" onClick={() => setFilters(ALL_FILTERS)}>Clear filters</button></div>}
-          {displayed.length > 0 && <div className="vault-table-heading" aria-hidden="true"><span>Vault / network</span><span>Reported yield</span><span>Total deposits</span><span>Recorded trend</span><span>Data status</span><span /></div>}
+          {displayed.length > 0 && <div className="vault-table-heading" aria-hidden="true"><span>Vault / network</span><span>Reported yield</span><span>{displayed.some(v => v.fixedTerm) ? "Deposits / loans" : "Total deposits"}</span><span>Recorded trend</span><span>Data status</span><span /></div>}
           <ul className="vault-list">{displayed.map(v => {
             const key = vaultKey(v), row = rows[key], live = row?.live, signal = signals[key], status = dataStatus(row, now);
             return <li className={`vault-row ${signal?.direction === "down" ? "has-drop" : ""}`} key={key}>
-              <div className="vault-identity"><button className="vault-name" onClick={() => openDetails(v)}>{v.name}</button><div className="vault-meta"><ProtocolBadge protocol={v.protocol} /><span>{networkLabel(v)}</span><span>{v.badge}</span></div>{signal && <p className={signal.direction === "down" ? "signal warning-text" : "signal success-text"}>{signal.reasons.join(" ")}</p>}</div>
-              <div className="metric"><span className="mobile-label">Reported yield</span><strong>{formatRate(live?.netApyPct)}</strong><small>{rateLabel(live?.rateType ?? (v.protocol === "yearn" ? "Reported" : "APY"))}{live?.netApyPct == null && row ? " · unavailable" : ""}</small></div>
-              <div className="metric"><span className="mobile-label">Total deposits</span><strong title={formatMoney(live?.tvlUsd, false)}>{formatMoney(live?.tvlUsd)}</strong><small>USD</small></div>
+              <div className="vault-identity"><button className="vault-name" onClick={() => openDetails(v)}>{v.name}</button><div className="vault-meta"><ProtocolBadge protocol={v.protocol} /><span>{networkLabel(v)}</span><span>{v.badge}</span></div>{v.fixedTerm && <p className="fixed-watch-maturity">{maturityDate(v.fixedTerm.maturity)} · {maturityRemaining(v.fixedTerm.maturity, now)}</p>}{signal && <p className={signal.direction === "down" ? "signal warning-text" : "signal success-text"}>{signal.reasons.join(" ")}</p>}</div>
+              <div className="metric"><span className="mobile-label">Reported yield</span><strong>{formatRate(status === "matured" ? null : live?.netApyPct)}</strong><small>{rateLabel(live?.rateType ?? (v.fixedTerm ? "Fixed APR" : v.protocol === "yearn" ? "Reported" : "APY"))}{live?.netApyPct == null && row ? " · unavailable" : ""}</small></div>
+              <div className="metric"><span className="mobile-label">{v.fixedTerm ? "Outstanding loans" : "Total deposits"}</span><strong title={formatMoney(live?.tvlUsd, false)}>{formatMoney(live?.tvlUsd)}</strong><small>{v.fixedTerm ? "Outstanding loans · USD" : "USD"}</small></div>
               <div className="trend-cell"><span className="mobile-label">Recorded trend</span><Sparkline vaultKey={key} updatedAt={live?.fetchedAt ?? null} /></div>
               <div className="status-cell"><StatusBadge status={status} /><small>Fetched {age(live?.fetchedAt, now)}</small>{status === "stale" && <small className="warning-text">Previous data; alerts paused</small>}{status === "unavailable" && <small>Some data is missing</small>}</div>
               <button className="text-button remove-button" aria-label={`Remove ${v.name} from watchlist`} onClick={() => removeVault(v)}>Remove</button>
@@ -242,20 +254,20 @@ export default function App() {
 
     <Dialog open={modal === "alerts"} title="Your alert controls." onClose={() => setModal(null)} wide>
       <div className="monitor-status"><span className={`data-status ${online && watchlist.length ? "status-updated" : "status-stale"}`}>{!online ? "Offline" : watchlist.length ? "Monitoring while open" : "No vaults watched"}</span><p>Keep this tab open for website alerts. Background tabs or a sleeping device may delay checks. Stale or missing data never triggers a yield alert.</p></div>
-      <form onSubmit={saveAlerts} className="alert-form"><div className="alert-setting"><label className="check-label"><input type="checkbox" checked={draft.apyEnabled} onChange={e => setDraft(d => ({ ...d, apyEnabled: e.target.checked }))} />Yield changes</label><label>Threshold in percentage points<input aria-label="Yield threshold in percentage points" type="number" min="0.1" max="100" step="0.1" value={Number.isNaN(draft.apyPp) ? "" : draft.apyPp} onChange={e => setDraft(d => ({ ...d, apyPp: e.target.value === "" ? NaN : Number(e.target.value) }))} required /></label><p className="meta">1 percentage point means a change from 5% to 4%, for example.</p></div><div className="alert-setting"><label className="check-label"><input type="checkbox" checked={draft.tvlEnabled} onChange={e => setDraft(d => ({ ...d, tvlEnabled: e.target.checked }))} />Total deposit changes</label><label>Threshold as a percentage<input aria-label="Deposit threshold as a percentage" type="number" min="0.1" max="100" step="0.1" value={Number.isNaN(draft.tvlPct) ? "" : draft.tvlPct} onChange={e => setDraft(d => ({ ...d, tvlPct: e.target.value === "" ? NaN : Number(e.target.value) }))} required /></label><p className="meta">Measured against recorded total deposits in the selected window.</p></div><label>Compare with the recorded peak or low over<select value={draft.windowHours} onChange={e => setDraft(d => ({ ...d, windowHours: Number(e.target.value) }))}>{[1, 3, 6, 24].map(h => <option value={h} key={h}>Last {h} hour{h > 1 ? "s" : ""}</option>)}</select></label><label>Notify me about<select value={draft.direction} onChange={e => setDraft(d => ({ ...d, direction: e.target.value as AlertSettings["direction"] }))}><option value="both">Drops and rises</option><option value="drops">Drops only</option></select></label><div className="button-row alert-form-actions"><button className="button button-primary" type="submit">Save settings</button><button className="text-button" type="button" onClick={() => setDraft(DEFAULT_ALERTS)}>Restore defaults</button></div></form>
+      <form onSubmit={saveAlerts} className="alert-form"><div className="alert-setting"><label className="check-label"><input type="checkbox" checked={draft.apyEnabled} onChange={e => setDraft(d => ({ ...d, apyEnabled: e.target.checked }))} />Yield changes</label><label>Threshold in percentage points<input aria-label="Yield threshold in percentage points" type="number" min="0.1" max="100" step="0.1" value={Number.isNaN(draft.apyPp) ? "" : draft.apyPp} onChange={e => setDraft(d => ({ ...d, apyPp: e.target.value === "" ? NaN : Number(e.target.value) }))} required /></label><p className="meta">1 percentage point means a change from 5% to 4%, for example. Fixed-market alerts track quoted lend APR, not an executed loan’s locked rate.</p></div><div className="alert-setting"><label className="check-label"><input type="checkbox" checked={draft.tvlEnabled} onChange={e => setDraft(d => ({ ...d, tvlEnabled: e.target.checked }))} />Deposits / outstanding loans</label><label>Threshold as a percentage<input aria-label="Deposit threshold as a percentage" type="number" min="0.1" max="100" step="0.1" value={Number.isNaN(draft.tvlPct) ? "" : draft.tvlPct} onChange={e => setDraft(d => ({ ...d, tvlPct: e.target.value === "" ? NaN : Number(e.target.value) }))} required /></label><p className="meta">Measured against deposits, or outstanding loans for fixed markets, in the selected window.</p></div><label>Compare with the recorded peak or low over<select value={draft.windowHours} onChange={e => setDraft(d => ({ ...d, windowHours: Number(e.target.value) }))}>{[1, 3, 6, 24].map(h => <option value={h} key={h}>Last {h} hour{h > 1 ? "s" : ""}</option>)}</select></label><label>Notify me about<select value={draft.direction} onChange={e => setDraft(d => ({ ...d, direction: e.target.value as AlertSettings["direction"] }))}><option value="both">Drops and rises</option><option value="drops">Drops only</option></select></label><div className="button-row alert-form-actions"><button className="button button-primary" type="submit">Save settings</button><button className="text-button" type="button" onClick={() => setDraft(DEFAULT_ALERTS)}>Restore defaults</button></div></form>
       {alertMessage && <p className="notice" role="status">{alertMessage}</p>}
       <section className="notification-section"><h3>Browser notifications</h3><p>{permission === "granted" ? "Permission enabled. Your device's notification and Focus settings can still affect delivery." : permission === "denied" ? "Blocked in this browser. Enable notifications in this site's browser settings to receive device alerts." : permission === "unsupported" ? "This browser doesn't support device notifications. Changes still appear in your watchlist." : "Optional: show a device notification when your thresholds are crossed."}</p>{permission === "default" && <button className="button" onClick={enableNotifications}>Enable browser notifications</button>}{permission === "granted" && <button className="button" onClick={() => { const result = fireNotification("Vault Watch test", "Your device notifications are set up. Keep the monitoring tab open."); setAlertMessage(result.attempted ? "Test sent to your browser. If it doesn't appear, check your device's notification settings." : result.error ?? "The test could not be sent."); }}>Send a test notification</button>}</section>
       <section className="recent-alerts"><h3>Recent alerts this session</h3>{events.length ? <ul>{events.map(event => <li key={event.id}><strong>{event.name}</strong><span className="meta">{age(event.at, now)}</span><p>{event.reasons.join(" ")}</p></li>)}</ul> : <p>No threshold crossings recorded yet. History builds while your watched vaults are checked.</p>}</section>
     </Dialog>
 
     <Dialog open={selected !== null} title={selected?.vault.name ?? "Vault details"} onClose={() => setSelected(null)} wide>
-      {selected && <><div className="detail-meta"><ProtocolBadge protocol={selected.vault.protocol} /><span>{networkLabel(selected.vault)}</span><span>{selected.vault.badge}</span><StatusBadge status={dataStatus(selectedRow, now)} /></div><div className="detail-metrics"><div><span>Reported yield</span><strong>{formatRate(selectedRow?.live?.netApyPct)} <small>{rateLabel(selectedRow?.live?.rateType ?? (selected.vault.protocol === "yearn" ? "Reported" : "APY"))}</small></strong></div><div><span>Total deposits</span><strong>{formatMoney(selectedRow?.live?.tvlUsd, false)}</strong></div></div>
+      {selected && <>{selected.vault.fixedTerm ? <FixedMarketDetails vault={selected.vault} live={selectedRow?.live} now={now} /> : <><div className="detail-meta"><ProtocolBadge protocol={selected.vault.protocol} /><span>{networkLabel(selected.vault)}</span><span>{selected.vault.badge}</span><StatusBadge status={dataStatus(selectedRow, now)} /></div><div className="detail-metrics"><div><span>Reported yield</span><strong>{formatRate(selectedRow?.live?.netApyPct)} <small>{rateLabel(selectedRow?.live?.rateType ?? (selected.vault.protocol === "yearn" ? "Reported" : "APY"))}</small></strong></div><div><span>Total deposits</span><strong>{formatMoney(selectedRow?.live?.tvlUsd, false)}</strong></div></div>
       {dataStatus(selectedRow, now) === "stale" && <p className="notice notice-warning">This is a previous reading. Refresh failed or the data is too old. Yield alerts are paused until fresh data returns.</p>}{dataStatus(selectedRow, now) === "unavailable" && <p className="notice notice-warning">Some source data is unavailable. Missing values are not zero.</p>}
       <dl className="detail-facts"><div><dt>Source</dt><dd>{sourceName(selected.vault)}</dd></div><div><dt>Source response fetched</dt><dd>{age(selectedRow?.live?.fetchedAt, now)}</dd></div><div><dt>Last check attempted</dt><dd>{age(selectedRow?.checkedAt, now)}</dd></div><div><dt>Asset / symbol</dt><dd>{selected.vault.assetSymbol || selected.vault.symbol}</dd></div><div><dt>Base APY</dt><dd>{selectedRow?.live?.baseApyPct == null ? "Not provided" : formatRate(selectedRow.live.baseApyPct)}</dd></div><div><dt>Reward APY</dt><dd>{selectedRow?.live?.rewardApyPct == null ? "Not provided" : formatRate(selectedRow.live.rewardApyPct)}</dd></div></dl>
       <p className="detail-explanation">{selectedRow?.live?.rateType === "Reported" ? "The compounding basis is unconfirmed for this feed. This is the source-reported rate, shown without conversion to APR or APY." : "APY is the annualised rate reported by the source, using that source's compounding assumptions."} Base and reward figures are shown only when supplied. Rates can change, and totals may differ because of rounding or source methodology.</p>
-      <label className="identifier-label">{["aave", "compound", "defi"].includes(selected.vault.protocol) ? "DeFiLlama pool ID" : "Vault contract address"}<input readOnly value={selected.vault.address} onFocus={e => e.target.select()} /></label>
+      <label className="identifier-label">{["aave", "compound", "defi"].includes(selected.vault.protocol) ? "DeFiLlama pool ID" : "Vault contract address"}<input readOnly value={selected.vault.address} onFocus={e => e.target.select()} /></label></>}
       {signals[selectedKey] && <p className="notice notice-warning">{signals[selectedKey]!.reasons.join(" ")}</p>}
-      <div className="detail-actions">{selectedLink && <a className="button" href={selectedLink.url} target="_blank" rel="noopener noreferrer">{selectedLink.label}<Icon name="arrow" /></a>}<button className="button button-primary" disabled={watchedKeys.has(selectedKey)} onClick={() => addVault(selected.vault)}>{watchedKeys.has(selectedKey) ? "In your watchlist" : "Watch this vault"}</button></div><p className="table-note">A higher yield does not establish safety. Total deposits are not the amount available for immediate withdrawal.</p></>}
+      <div className="detail-actions">{selectedLink && <a className="button" href={selectedLink.url} target="_blank" rel="noopener noreferrer">{selectedLink.label}<Icon name="arrow" /></a>}<button className="button button-primary" disabled={watchedKeys.has(selectedKey)} onClick={() => addVault(selected.vault)}>{watchedKeys.has(selectedKey) ? "In your watchlist" : selected.vault.fixedTerm ? "Watch this market" : "Watch this vault"}</button></div><p className="table-note">{selected.vault.fixedTerm ? "Fixed quotes are before fees. Outstanding loans are not withdrawal liquidity." : "A higher yield does not establish safety. Total deposits are not the amount available for immediate withdrawal."}</p></>}
     </Dialog>
   </div>;
 }

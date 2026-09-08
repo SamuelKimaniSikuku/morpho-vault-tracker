@@ -30,6 +30,12 @@ export function exportWatchlist(watchlist: WatchedVault[]) {
 }
 
 function isValidVault(raw: any): raw is WatchedVault {
+  if (raw?.fixedTerm != null && !(raw.protocol === "morpho" && [1, 8453].includes(raw.chainId)
+    && typeof raw.address === "string" && /^0x[\da-fA-F]{64}$/.test(raw.address)
+    && Number.isSafeInteger(raw.fixedTerm.maturity) && raw.fixedTerm.maturity > 0 && raw.fixedTerm.maturity < 8.64e12
+    && typeof raw.fixedTerm.loanToken === "string" && /^0x[\da-fA-F]{40}$/.test(raw.fixedTerm.loanToken)
+    && Array.isArray(raw.fixedTerm.collaterals) && raw.fixedTerm.collaterals.length > 0
+    && raw.fixedTerm.collaterals.every((c: any) => c && typeof c.address === "string" && /^0x[\da-fA-F]{40}$/.test(c.address) && typeof c.symbol === "string" && (c.lltvPct === null || (Number.isFinite(c.lltvPct) && c.lltvPct >= 0 && c.lltvPct <= 100))))) return false;
   return (
     raw &&
     typeof raw === "object" &&

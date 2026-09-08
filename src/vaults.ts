@@ -1,4 +1,5 @@
 import { searchMorphoVaults, fetchMorphoLiveState, getTopMorphoVault } from "./morpho";
+import { fetchFixedLiveState } from "./midnight";
 import { searchYearnVaults, fetchYearnLiveState, getTopYearnVault } from "./yearn";
 import { searchBeefyVaults, fetchBeefyLiveState, getTopBeefyVault } from "./beefy";
 import { searchAaveVaults, fetchAaveLiveState, getTopAaveVault } from "./aave";
@@ -82,6 +83,7 @@ export function rankVaults(flat: VaultSummary[], query: string): VaultSummary[] 
 }
 
 export async function fetchLiveState(vault: WatchedVault): Promise<LiveState | null> {
+  if (vault.protocol === "morpho" && vault.fixedTerm) return fetchFixedLiveState(vault);
   switch (vault.protocol) {
     case "morpho":
       return fetchMorphoLiveState(vault);

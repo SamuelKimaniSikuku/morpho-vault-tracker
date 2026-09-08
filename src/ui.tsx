@@ -22,7 +22,7 @@ export function Icon({ name, className = "" }: { name: keyof typeof paths; class
 }
 export function ProtocolBadge({ protocol }: { protocol: Protocol }) { return <span className={`protocol-badge protocol-${protocol}`}>{PROTOCOL_LABELS[protocol]}</span>; }
 export function StatusBadge({ status }: { status: DataStatus }) {
-  const labels = { updated: "Updated", stale: "Stale", unavailable: "Unavailable", loading: "Checking" };
+  const labels = { updated: "Updated", stale: "Stale", unavailable: "Unavailable", loading: "Checking", "no-offers": "No lend offers", matured: "Matured", unlisted: "Not listed" };
   return <span className={`data-status status-${status}`}>{labels[status]}</span>;
 }
 export function rateLabel(type: string) { return type === "Reported" ? "Source rate" : type; }
@@ -51,11 +51,12 @@ export function Dialog({ open, title, onClose, children, wide = false }: { open:
     <div className="dialog-inner"><div className="dialog-heading"><h2 id={id}>{title}</h2><button className="icon-button" aria-label="Close dialog" onClick={onClose}><Icon name="close" /></button></div>{children}</div>
   </dialog>;
 }
-export function FilterControls({ vaults, value, onChange, label }: { vaults: WatchedVault[]; value: VaultFilters; onChange: (value: VaultFilters) => void; label: string }) {
+export function FilterControls({ vaults, value, onChange, label, categories = false }: { vaults: WatchedVault[]; value: VaultFilters; onChange: (value: VaultFilters) => void; label: string; categories?: boolean }) {
   const networks = [...new Set([...vaults.map(networkLabel), ...(value.network === "all" ? [] : [value.network])])].sort();
   const assets = [...new Set([...vaults.flatMap(assetTokens), ...(value.asset === "all" ? [] : [value.asset])])].sort();
-  const active = value.protocol !== "all" || value.network !== "all" || value.asset !== "all";
+  const active = value.protocol !== "all" || value.network !== "all" || value.asset !== "all" || (value.category && value.category !== "all");
   return <div className="filters" role="group" aria-label={label}>
+    {categories && <label><span>Category</span><select value={value.category ?? "all"} onChange={e => onChange({ ...value, category: e.target.value as VaultFilters["category"] })}><option value="all">All categories</option><option value="variable">Variable vaults</option><option value="fixed">Fixed Vaults</option></select></label>}
     <label><span>Protocol</span><select value={value.protocol} onChange={e => onChange({ ...value, protocol: e.target.value as VaultFilters["protocol"] })}><option value="all">All protocols</option>{ALL_PROTOCOLS.map(p => <option key={p} value={p}>{PROTOCOL_LABELS[p]}</option>)}</select></label>
     <label><span>Network</span><select value={value.network} onChange={e => onChange({ ...value, network: e.target.value })}><option value="all">All networks</option>{networks.map(n => <option key={n}>{n}</option>)}</select></label>
     <label><span>Asset / symbol</span><select value={value.asset} onChange={e => onChange({ ...value, asset: e.target.value })}><option value="all">All assets</option>{assets.map(a => <option key={a}>{a}</option>)}</select></label>
