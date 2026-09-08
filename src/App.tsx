@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { getTopVault, searchVaults, groupVaults } from "./vaults";
+import { getTopVault, searchVaultsWithStatus } from "./vaults";
 import type { VaultSummary, WatchedVault, Protocol } from "./types";
 import { loadWatchlist, saveWatchlist, vaultKey, getHistory, statsInWindow } from "./watchlist";
 import { useMonitor } from "./useMonitor";
@@ -10,8 +10,10 @@ import { exportWatchlist, parseAndMerge, watchlistFromHash, watchlistToHash } fr
 import { getMarketOverview, type NewsWindow } from "./news";
 import { filterVaults, networkLabel, ALL_FILTERS } from "./filters";
 import { sourceName, vaultLink, poolLink } from "./sources";
-import { Dialog, FilterControls, Icon, ProtocolBadge, StatusBadge, ALL_PROTOCOLS, PROTOCOL_LABELS, formatRate, formatMoney, age, rateLabel } from "./ui";
+import { Dialog, FilterControls, Icon, ProtocolBadge, StatusBadge, ALL_PROTOCOLS, formatRate, formatMoney, age, rateLabel } from "./ui";
 import { SearchPanel } from "./SearchPanel";
+import { ScreenshotResults } from "./ScreenshotResults";
+import type { ScreenshotRow } from "./screenshot-matching";
 import { Sparkline } from "./Sparkline";
 import "./App.css";
 
@@ -53,7 +55,7 @@ export default function App() {
   const [ocrBusy, setOcrBusy] = useState(false);
   const screenshotInput = useRef<HTMLInputElement>(null);
   const [ocrMessage, setOcrMessage] = useState("");
-  const [ocrMatches, setOcrMatches] = useState<VaultSummary[]>([]);
+  const [ocrRows, setOcrRows] = useState<ScreenshotRow[]>([]);
   const [backupLink, setBackupLink] = useState("");
   const [importMessage, setImportMessage] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
@@ -129,25 +131,20 @@ export default function App() {
     const file = event.target.files?.[0]; event.target.value = "";
     if (!file) return;
     setModal("import");
-    setOcrBusy(true); setOcrMessage(""); setOcrMatches([]);
+    setOcrBusy(true); setOcrMessage(""); setOcrRows([]);
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const { extractVaultCandidates } = await import("./ocr");
       const candidates = await Promise.race([extractVaultCandidates(file), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("Reading timed out. Try a smaller, clearer screenshot.")), 30_000); })]);
       if (!candidates.length) { setOcrMessage("No vault names could be read. Try a clearer screenshot or search by name."); return; }
-      const lists = await Promise.all(candidates.slice(0, 10).map(async candidate => {
-        let list = await searchVaults(candidate.name);
-        const chain = candidate.networkHint === "base" ? 8453 : candidate.networkHint === "ethereum" ? 1 : null;
-        if (chain != null) {
-          const onChain = new Set(list.filter(v => v.chainId === chain).map(v => `${v.protocol}:${v.name.toLowerCase()}`));
-          list = list.filter(v => v.chainId === chain || !onChain.has(`${v.protocol}:${v.name.toLowerCase()}`));
-        }
-        const exact = list.filter(v => v.name.trim().toLowerCase() === candidate.name.trim().toLowerCase());
-        return (exact.length ? exact : list).slice(0, 3);
+      const searches = new Map<string, ReturnType<typeof searchVaultsWithStatus>>();
+      const rows = await Promise.all(candidates.slice(0, 20).map(async candidate => {
+        const key = candidate.name.toLowerCase();
+        if (!searches.has(key)) searches.set(key, searchVaultsWithStatus(candidate.name));
+        return { candidate, report: await searches.get(key)! };
       }));
-      const unique = new Map(lists.flat().map(v => [vaultKey(v), v]));
-      setOcrMatches([...unique.values()]);
-      setOcrMessage(unique.size ? "Possible matches found. Confirm the name, network, and version before adding." : "No matching vaults were found. Try search, or retry when data sources are available.");
+      setOcrRows(rows);
+      setOcrMessage(`${rows.length} screenshot rows read. Match each row by name, network, and version, then confirm the vault.${candidates.length > 20 ? " Showing the first 20 rows; crop the remaining rows into another screenshot." : ""}`);
     } catch (error) { setOcrMessage(error instanceof Error ? error.message : "The screenshot couldn't be read. Try another image."); }
     finally { clearTimeout(timer); setOcrBusy(false); }
   }
@@ -239,7 +236,7 @@ export default function App() {
       <p className="dialog-lead">Import an existing watchlist or find vaults in a screenshot. Your files are processed on this device.</p>
       <div className="import-options"><section><label className="file-label" htmlFor="import-json">Import a watchlist</label><p>Choose a Vault Watch JSON export. Duplicates will be skipped.</p><input id="import-json" type="file" accept="application/json,.json" onChange={importFile} /></section><section><label className="file-label" htmlFor="import-image">Read a screenshot</label><p>Choose an image of your vault or portfolio page. Check each suggested match before adding it.</p><input id="import-image" type="file" accept="image/*" disabled={ocrBusy} onChange={readScreenshot} />{ocrBusy && <p className="notice" role="status">Reading the image on your device…</p>}</section></div>
       {importMessage && <p className="notice" role="status">{importMessage}</p>}{ocrMessage && <p className="notice" role="status">{ocrMessage}</p>}
-      {groupVaults(ocrMatches).map(group => <div className="ocr-group" key={vaultKey(group[0])}>{group.length > 1 && <p className="notice notice-warning">{group.length} possible matches. Check the network and version.</p>}{group.map(v => <div className="import-match" key={vaultKey(v)}><div><button className="vault-name" onClick={() => openDetails(v, v)}>{v.name}</button><p className="meta">{PROTOCOL_LABELS[v.protocol]} · {networkLabel(v)} · {v.badge} · {formatRate(v.netApyPct)} {rateLabel(v.rateType)}</p></div><button className="button" disabled={watchedKeys.has(vaultKey(v))} onClick={() => addVault(v)}>{watchedKeys.has(vaultKey(v)) ? "Watching" : "Watch"}</button></div>)}</div>)}
+      <ScreenshotResults rows={ocrRows} watched={watchedKeys} onAdd={addVault} onDetails={v => openDetails(v, v)} onSearch={name => { setModal(null); setQuery(name); }} />
       <section className="backup-section"><h3>Keep a backup</h3><p>Browser data can be cleared. Save a file or a bookmark to restore your watchlist later.</p><div className="button-row"><button className="button" disabled={!watchlist.length} onClick={() => { try { exportWatchlist(watchlist); } catch { setImportMessage("The export couldn't be created. Try copying a backup link."); } }}>Export watchlist</button><button className="button" disabled={!watchlist.length} onClick={copyBackup}>Copy backup link</button></div>{backupLink && <label className="backup-link-label">Complete backup link<textarea readOnly value={backupLink} onFocus={e => e.target.select()} /></label>}</section>
     </Dialog>
 
