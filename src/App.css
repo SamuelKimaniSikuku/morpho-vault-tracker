@@ -203,7 +203,11 @@ input::file-selector-button { background: var(--accent-bg); color: var(--accent)
 .fixed-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
 .fixed-filters label { display: flex; flex: 1 1 150px; min-width: 0; flex-direction: column; gap: 7px; font-size: .875rem; color: var(--muted); }
 .fixed-filters .fixed-search { flex: 2 1 250px; }
-.fixed-row { display: grid; grid-template-columns: minmax(210px, 2fr) minmax(128px, 1.1fr) minmax(90px, .85fr) minmax(90px, .85fr) minmax(120px, 1fr) 130px; gap: 20px; align-items: center; padding: 20px; }
+.fixed-intro-note { margin: 0 0 20px; color: var(--muted); line-height: 1.6; }
+.fixed-sort-note { margin: 0 0 12px; }
+.fixed-market-link { display: inline-flex; align-items: center; justify-content: center; gap: 4px; font-size: .875rem; }
+.fixed-market-link svg { width: 15px; height: 15px; }
+.fixed-row { display: grid; grid-template-columns: minmax(230px, 2fr) minmax(128px, 1fr) minmax(135px, 1fr) minmax(130px, 1fr) 130px; gap: 20px; align-items: center; padding: 20px; }
 .fixed-table-heading { color: var(--muted); font-size: .875rem; padding-top: 12px; padding-bottom: 12px; }
 .fixed-list { list-style: none; padding: 0; margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .fixed-list .fixed-row + .fixed-row { border-top: 1px solid var(--border); }
@@ -221,9 +225,9 @@ input::file-selector-button { background: var(--accent-bg); color: var(--accent)
 .fixed-guide a { font-size: .875rem; }
 .fixed-watch-maturity { color: var(--muted); font-size: .875rem; margin-top: 7px; }
 .fixed-source-note { margin-top: 10px; }
-.status-no-offers, .status-matured, .status-unlisted { color: var(--muted); background: var(--surface-soft); }
+.status-no-offers, .status-no-quote, .status-matured, .status-unlisted { color: var(--muted); background: var(--surface-soft); }
 @media (max-width: 1150px) {
-  .fixed-row { grid-template-columns: minmax(170px, 2fr) minmax(110px, 1.15fr) minmax(78px, .8fr) minmax(78px, .8fr) minmax(100px, 1fr) 114px; gap: 12px; padding: 18px 14px; }
+  .fixed-row { grid-template-columns: minmax(190px, 2fr) minmax(110px, 1fr) minmax(115px, 1fr) minmax(100px, 1fr) 114px; gap: 12px; padding: 18px 14px; }
   .fixed-intro { flex-wrap: wrap; }
 }
 @media (max-width: 950px) {

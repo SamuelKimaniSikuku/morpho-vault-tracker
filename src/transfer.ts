@@ -2,7 +2,7 @@ import type { WatchedVault, Protocol } from "./types";
 import { vaultKey } from "./watchlist";
 
 const EXPORT_VERSION = 1;
-const VALID_PROTOCOLS: Protocol[] = ["morpho", "yearn", "beefy", "aave", "compound", "defi"];
+const VALID_PROTOCOLS: Protocol[] = ["morpho", "yearn", "beefy", "aave", "compound", "defi", "pendle", "spectra"];
 
 interface ExportFile {
   app: "vaultwatch";
@@ -30,11 +30,14 @@ export function exportWatchlist(watchlist: WatchedVault[]) {
 }
 
 function isValidVault(raw: any): raw is WatchedVault {
-  if (raw?.fixedTerm != null && !(raw.protocol === "morpho" && [1, 8453].includes(raw.chainId)
-    && typeof raw.address === "string" && /^0x[\da-fA-F]{64}$/.test(raw.address)
+  const principal = ["pendle", "spectra"].includes(raw?.protocol);
+  if (principal && !raw.fixedTerm) return false;
+  if (raw?.fixedTerm != null && !((raw.protocol === "morpho" || principal) && [1, 8453].includes(raw.chainId)
+    && typeof raw.address === "string" && (principal ? /^0x[\da-fA-F]{40}$/ : /^0x[\da-fA-F]{64}$/).test(raw.address)
     && Number.isSafeInteger(raw.fixedTerm.maturity) && raw.fixedTerm.maturity > 0 && raw.fixedTerm.maturity < 8.64e12
     && typeof raw.fixedTerm.loanToken === "string" && /^0x[\da-fA-F]{40}$/.test(raw.fixedTerm.loanToken)
-    && Array.isArray(raw.fixedTerm.collaterals) && raw.fixedTerm.collaterals.length > 0
+    && (principal ? typeof raw.fixedTerm.principalToken === "string" && /^0x[\da-fA-F]{40}$/.test(raw.fixedTerm.principalToken) && typeof raw.fixedTerm.yieldAsset === "string" : raw.fixedTerm.principalToken == null)
+    && Array.isArray(raw.fixedTerm.collaterals) && (principal ? raw.fixedTerm.collaterals.length === 0 : raw.fixedTerm.collaterals.length > 0)
     && raw.fixedTerm.collaterals.every((c: any) => c && typeof c.address === "string" && /^0x[\da-fA-F]{40}$/.test(c.address) && typeof c.symbol === "string" && (c.lltvPct === null || (Number.isFinite(c.lltvPct) && c.lltvPct >= 0 && c.lltvPct <= 100))))) return false;
   return (
     raw &&

@@ -4,6 +4,7 @@ import { vaultKey } from "./watchlist";
 import { filterVaults, ALL_FILTERS, networkLabel } from "./filters";
 import { FilterControls, Icon, ProtocolBadge, PROTOCOL_LABELS, formatRate, formatMoney, age, rateLabel } from "./ui";
 import type { VaultSummary, WatchedVault } from "./types";
+import { marketSizeLabel } from "./sources";
 
 export function SearchPanel({ query, onQuery, watchlist, onAdd, onDetails, onScreenshot, screenshotBusy }: { query: string; onQuery: (query: string) => void; watchlist: WatchedVault[]; onAdd: (v: VaultSummary) => void; onDetails: (v: VaultSummary) => void; onScreenshot: () => void; screenshotBusy: boolean }) {
   const [report, setReport] = useState<SearchReport | null>(null);
@@ -50,7 +51,7 @@ export function SearchPanel({ query, onQuery, watchlist, onAdd, onDetails, onScr
         {group.length > 1 && <p className="group-label">{group[0].name} · {group.length} matches — check the network and version</p>}
         {group.map(v => <div className="result-row" key={vaultKey(v)}>
           <div><button className="vault-name" onClick={() => onDetails(v)}>{v.name}</button><div className="vault-meta"><ProtocolBadge protocol={v.protocol} /><span>{networkLabel(v)}</span><span>{v.badge}</span></div></div>
-          <div className="result-metrics"><span><strong>{formatRate(v.netApyPct)}</strong><small>{rateLabel(v.rateType)}</small></span><span><strong>{formatMoney(v.tvlUsd)}</strong><small>Total deposits</small></span></div>
+          <div className="result-metrics"><span><strong>{formatRate(v.netApyPct)}</strong><small>{rateLabel(v.rateType)}</small></span><span><strong>{formatMoney(v.tvlUsd)}</strong><small>{marketSizeLabel(v)}</small></span></div>
           <div className="result-action"><button className={watched.has(vaultKey(v)) ? "button button-muted" : "button button-primary"} disabled={watched.has(vaultKey(v))} onClick={() => onAdd(v)}><Icon name={watched.has(vaultKey(v)) ? "check" : "plus"} />{watched.has(vaultKey(v)) ? "Watching" : "Watch"}</button><small className={v.stale ? "warning-text" : "meta"}>{v.stale ? "Stale · " : "Fetched "}{age(v.fetchedAt)}</small></div>
         </div>)}
       </li>)}</ul>

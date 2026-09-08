@@ -1,5 +1,6 @@
 import { searchMorphoVaults, fetchMorphoLiveState, getTopMorphoVault } from "./morpho";
 import { fetchFixedLiveState } from "./midnight";
+import { pendleClient, spectraClient } from "./principal";
 import { searchYearnVaults, fetchYearnLiveState, getTopYearnVault } from "./yearn";
 import { searchBeefyVaults, fetchBeefyLiveState, getTopBeefyVault } from "./beefy";
 import { searchAaveVaults, fetchAaveLiveState, getTopAaveVault } from "./aave";
@@ -13,7 +14,14 @@ export type { VaultSummary, WatchedVault, LiveState, Protocol } from "./types";
 const PROVIDERS = {
   morpho: searchMorphoVaults, yearn: searchYearnVaults, beefy: searchBeefyVaults,
   aave: searchAaveVaults, compound: searchCompoundVaults, defi: searchDefiVaults,
+  pendle: async (_query: string) => principalSearch(pendleClient),
+  spectra: async (_query: string) => principalSearch(spectraClient),
 };
+async function principalSearch(client: typeof pendleClient) {
+  const report = await client.report();
+  if (report.unavailable.length === 2) throw new Error("Fixed-yield source unavailable");
+  return report.vaults;
+}
 export interface SearchReport { vaults: VaultSummary[]; unavailable: Protocol[]; stale: Protocol[] }
 
 function groupKey(v: VaultSummary): string {
@@ -85,6 +93,8 @@ export function rankVaults(flat: VaultSummary[], query: string): VaultSummary[] 
 export async function fetchLiveState(vault: WatchedVault): Promise<LiveState | null> {
   if (vault.protocol === "morpho" && vault.fixedTerm) return fetchFixedLiveState(vault);
   switch (vault.protocol) {
+    case "pendle": return pendleClient.live(vault);
+    case "spectra": return spectraClient.live(vault);
     case "morpho":
       return fetchMorphoLiveState(vault);
     case "yearn":

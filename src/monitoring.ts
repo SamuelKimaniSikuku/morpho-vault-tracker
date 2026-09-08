@@ -1,9 +1,10 @@
 import type { LiveState, WatchedVault } from "./types";
 import type { HistoryPoint } from "./watchlist";
 import { STALE_AFTER_MS } from "./data";
+import { marketSizeLabel } from "./sources";
 
 export interface Reading { vault: WatchedVault; live: LiveState | null; checkedAt: number; error: boolean }
-export type DataStatus = "updated" | "stale" | "unavailable" | "loading" | "no-offers" | "matured" | "unlisted";
+export type DataStatus = "updated" | "stale" | "unavailable" | "loading" | "no-offers" | "no-quote" | "matured" | "unlisted";
 export function mergeReading(vault: WatchedVault, previous: Reading | undefined, live: LiveState | null, checkedAt: number): Reading {
   if (live) return { vault, live, checkedAt, error: live.stale };
   return { vault, live: previous?.live ? { ...previous.live, stale: true } : null, checkedAt, error: true };
@@ -14,7 +15,7 @@ export function dataStatus(reading: Reading | undefined, now = Date.now()): Data
   if (reading.live?.fixedQuotes) {
     if (reading.error || reading.live.stale || now - reading.live.fetchedAt > STALE_AFTER_MS) return "stale";
     if (!reading.live.fixedQuotes.listed) return "unlisted";
-    if (reading.live.netApyPct == null) return "no-offers";
+    if (reading.live.netApyPct == null) return reading.vault.fixedTerm?.principalToken ? "no-quote" : "no-offers";
   }
   if (!reading.live || (reading.live.netApyPct == null && reading.live.tvlUsd == null)) return "unavailable";
   if (reading.error || reading.live.stale || now - reading.live.fetchedAt > STALE_AFTER_MS) return "stale";
@@ -47,10 +48,10 @@ export function evaluateAlert(history: HistoryPoint[], reading: Reading | undefi
     const reasons: string[] = [], triggers: string[] = [];
     const edge = direction === "down" ? "peak" : "low";
     if (settings.apyEnabled && yieldChange + 1e-9 >= settings.apyPp) {
-      reasons.push(`${reading.vault.fixedTerm ? "Quoted lend APR" : "Yield"} ${direction} ${yieldChange.toFixed(2)} percentage points from the ${settings.windowHours}h ${edge} (${baseApy.toFixed(2)}%).`); triggers.push("yield");
+      reasons.push(`${reading.vault.fixedTerm?.principalToken ? "Quoted PT APY" : reading.vault.fixedTerm ? "Quoted lend APR" : "Yield"} ${direction} ${yieldChange.toFixed(2)} percentage points from the ${settings.windowHours}h ${edge} (${baseApy.toFixed(2)}%).`); triggers.push("yield");
     }
     if (settings.tvlEnabled && depositsChange + 1e-9 >= settings.tvlPct) {
-      reasons.push(`${reading.vault.fixedTerm ? "Outstanding loans" : "Deposits"} ${direction} ${depositsChange.toFixed(1)}% from the ${settings.windowHours}h ${edge}.`); triggers.push("deposits");
+      reasons.push(`${marketSizeLabel(reading.vault)} ${direction} ${depositsChange.toFixed(1)}% from the ${settings.windowHours}h ${edge}.`); triggers.push("deposits");
     }
     if (reasons.length) return { direction, reasons, signature: `${direction}:${triggers.join(",")}` };
   }
