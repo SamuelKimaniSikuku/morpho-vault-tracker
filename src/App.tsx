@@ -51,6 +51,7 @@ export default function App() {
   const [exploreRevision, setExploreRevision] = useState(0);
   const [newsWindow, setNewsWindow] = useState<NewsWindow>("1d");
   const [ocrBusy, setOcrBusy] = useState(false);
+  const screenshotInput = useRef<HTMLInputElement>(null);
   const [ocrMessage, setOcrMessage] = useState("");
   const [ocrMatches, setOcrMatches] = useState<VaultSummary[]>([]);
   const [backupLink, setBackupLink] = useState("");
@@ -127,6 +128,7 @@ export default function App() {
   async function readScreenshot(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]; event.target.value = "";
     if (!file) return;
+    setModal("import");
     setOcrBusy(true); setOcrMessage(""); setOcrMatches([]);
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
@@ -196,7 +198,8 @@ export default function App() {
       {notice && <div className="notice notice-info" role="status"><span>{notice}</span>{removed && <button className="text-button" onClick={() => addVault(removed)}>Undo</button>}<button className="icon-button small" aria-label="Dismiss message" onClick={() => { setNotice(""); setRemoved(null); }}><Icon name="close" /></button></div>}
       <div className="page-heading"><div><h1>{view === "watchlist" ? "Your watchlist." : "Explore vaults."}</h1><p>{view === "watchlist" ? "Watch yield changes. Know what needs a closer look." : "Discover reported yields, total deposits, and market moves."}</p></div><button className="button" disabled={view === "watchlist" ? refreshing || !watchlist.length : exploreBusy} onClick={view === "watchlist" ? refresh : () => setExploreRevision(n => n + 1)}><Icon name="refresh" className={(view === "watchlist" ? refreshing : exploreBusy) ? "spinning" : ""} />{(view === "watchlist" ? refreshing : exploreBusy) ? "Checking…" : "Check now"}</button></div>
       {view === "watchlist" && <div className="summary-strip"><div><span>Vaults watched</span><strong>{watchlist.length.toString().padStart(2, "0")}</strong></div><div><span>Needs attention</span><strong className={attention ? "warning-text" : ""}>{attention.toString().padStart(2, "0")}</strong><small>Triggered drops or missing fresh data</small></div><div><span>Updated readings</span><strong>{updated}<small> / {watchlist.length}</small></strong><small>Checks every 60 seconds while open</small></div></div>}
-      <SearchPanel query={query} onQuery={setQuery} watchlist={watchlist} onAdd={addVault} onDetails={v => openDetails(v, v)} />
+      <SearchPanel query={query} onQuery={setQuery} watchlist={watchlist} onAdd={addVault} onDetails={v => openDetails(v, v)} onScreenshot={() => screenshotInput.current?.click()} screenshotBusy={ocrBusy} />
+      <input ref={screenshotInput} type="file" accept="image/*" hidden aria-label="Upload screenshot" disabled={ocrBusy} onChange={readScreenshot} />
 
       {view === "watchlist" && <section className="watchlist-panel" aria-label="Watched vaults">
         {watchlist.length > 0 ? <>

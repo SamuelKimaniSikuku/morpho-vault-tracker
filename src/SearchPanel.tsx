@@ -5,7 +5,7 @@ import { filterVaults, ALL_FILTERS, networkLabel } from "./filters";
 import { FilterControls, Icon, ProtocolBadge, PROTOCOL_LABELS, formatRate, formatMoney, age, rateLabel } from "./ui";
 import type { VaultSummary, WatchedVault } from "./types";
 
-export function SearchPanel({ query, onQuery, watchlist, onAdd, onDetails }: { query: string; onQuery: (query: string) => void; watchlist: WatchedVault[]; onAdd: (v: VaultSummary) => void; onDetails: (v: VaultSummary) => void }) {
+export function SearchPanel({ query, onQuery, watchlist, onAdd, onDetails, onScreenshot, screenshotBusy }: { query: string; onQuery: (query: string) => void; watchlist: WatchedVault[]; onAdd: (v: VaultSummary) => void; onDetails: (v: VaultSummary) => void; onScreenshot: () => void; screenshotBusy: boolean }) {
   const [report, setReport] = useState<SearchReport | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
   const [filters, setFilters] = useState(ALL_FILTERS), [limit, setLimit] = useState(20), [retry, setRetry] = useState(0);
@@ -35,7 +35,7 @@ export function SearchPanel({ query, onQuery, watchlist, onAdd, onDetails }: { q
   const groups = groupVaults(filtered.slice(0, limit));
   const watched = new Set(watchlist.map(vaultKey));
   return <section className="search-panel" aria-label="Find and add vaults">
-    <label className="search-label" htmlFor="vault-search">Find a vault</label>
+    <div className="search-heading"><label className="search-label" htmlFor="vault-search">Find a vault</label><button className="button" type="button" onClick={onScreenshot} disabled={screenshotBusy}><Icon name="import" />{screenshotBusy ? "Reading screenshot…" : "Upload screenshot"}</button></div>
     <div className="search-field"><Icon name="search" /><input id="vault-search" type="search" autoComplete="off" maxLength={1300} placeholder="Search a name or asset, e.g. Steakhouse or USDC" value={query} onChange={e => onQuery(e.target.value)} aria-describedby="search-help" />{query && <button className="icon-button" aria-label="Clear search" onClick={() => onQuery("")}><Icon name="close" /></button>}</div>
     <p id="search-help" className="meta">Search across six integrations. You can paste multiple names, separated by commas.</p>
     {busy && <p className="notice" role="status">Searching vault sources…</p>}

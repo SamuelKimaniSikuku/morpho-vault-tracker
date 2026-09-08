@@ -31,7 +31,8 @@ main { padding-top: 30px; }
 .summary-strip small { font-weight: 400; color: var(--muted); }
 .summary-strip strong > small { font-size: 1.05rem; }
 .search-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; box-shadow: var(--shadow); margin-bottom: 24px; }
-.search-label { display: block; margin-bottom: 10px; font-size: .875rem; font-weight: 650; }
+.search-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; margin-bottom: 12px; }
+.search-label { display: block; font-size: .875rem; font-weight: 650; }
 .search-field { position: relative; display: flex; align-items: center; background: var(--field); border: 1px solid var(--border); border-radius: 10px; }
 .search-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
 .search-field > svg { margin-left: 16px; color: var(--muted); }
