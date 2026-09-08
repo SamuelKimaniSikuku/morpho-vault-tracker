@@ -31,11 +31,12 @@ export function Sparkline({ vaultKey, updatedAt }: Props) {
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     });
 
-    return { path: coords.join(" "), rising: apys[apys.length - 1] >= apys[0] };
+    const last = apys[apys.length - 1];
+    return { path: coords.join(" "), direction: Math.sign(last - apys[0]), label: `Recorded yield: ${apys[0].toFixed(2)}% to ${last.toFixed(2)}%. Range ${min.toFixed(2)}% to ${max.toFixed(2)}%. History collected on this device.` };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vaultKey, updatedAt]);
 
-  if (!points) return <span className="sparkline-empty">–</span>;
+  if (!points) return <span className="sparkline-empty" title="The trend appears after two fresh source readings.">Collecting history</span>;
 
   return (
     <svg
@@ -43,12 +44,14 @@ export function Sparkline({ vaultKey, updatedAt }: Props) {
       width={W}
       height={H}
       viewBox={`0 0 ${W} ${H}`}
-      aria-hidden="true"
+      role="img"
+      aria-label={points.label}
     >
+      <title>{points.label}</title>
       <polyline
         points={points.path}
         fill="none"
-        stroke={points.rising ? "var(--success)" : "var(--danger)"}
+        stroke={points.direction > 0 ? "var(--success)" : points.direction < 0 ? "var(--warning)" : "var(--accent)"}
         strokeWidth="1.5"
         strokeLinejoin="round"
         strokeLinecap="round"

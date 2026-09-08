@@ -1,77 +1,40 @@
 import { fuzzyMatchScore } from "./fuzzy";
 import { chainName } from "./chains";
-import type { VaultSummary, WatchedVault, LiveState } from "./types";
-
+import { cachedLoader, requestJson, rate, deposits, eligibleRate } from "./data";
+import type { VaultSummary, WatchedVault } from "./types";
 const API_URL = "https://ydaemon.yearn.fi";
 const CHAIN_IDS = [1, 10, 137, 250, 8453, 42161, 146];
-
-function toSummary(raw: any): VaultSummary {
-  const apr = raw.apr ?? {};
-  const netApy = apr.forwardAPR?.netAPR || apr.netAPR || 0;
+export function yearnSummary(raw: any, fetchedAt: number, stale = false): VaultSummary {
+  // A reported zero is valid; never fall through to an older non-zero rate.
+  const explicitApy = raw.apy?.forwardAPY?.netAPY ?? raw.apy?.netAPY;
+  const missing = String(raw.apy?.type ?? raw.apr?.type ?? "").includes("missing");
+  const reported = missing ? null : explicitApy ?? raw.apr?.forwardAPR?.netAPR ?? raw.apr?.netAPR;
   return {
-    protocol: "yearn",
-    address: raw.address,
-    chainId: raw.chainID,
-    network: chainName(raw.chainID),
-    name: raw.name,
-    symbol: raw.symbol,
+    protocol: "yearn", address: raw.address, chainId: raw.chainID,
+    network: chainName(raw.chainID), name: raw.name, symbol: raw.symbol, assetSymbol: raw.token?.symbol,
     badge: raw.version ? `v${raw.version}` : "Yearn",
-    netApyPct: netApy * 100,
-    tvlUsd: raw.tvl?.tvl ?? 0,
+    netApyPct: rate(reported, 100), tvlUsd: deposits(raw.tvl?.tvl),
+    fetchedAt, stale, rateType: explicitApy != null ? "APY" : "Reported",
   };
 }
-
-let cache: VaultSummary[] | null = null;
-let cacheAt = 0;
-const CACHE_TTL_MS = 5 * 60 * 1000;
-
-async function loadCache(): Promise<VaultSummary[]> {
-  const now = Date.now();
-  if (cache && now - cacheAt < CACHE_TTL_MS) return cache;
-
-  const res = await fetch(`${API_URL}/vaults?chainIDs=${CHAIN_IDS.join(",")}&limit=5000`);
-  const raw = await res.json();
-  cache = (raw as any[])
-    .filter((v) => v.address && typeof v.chainID === "number")
-    .map(toSummary);
-  cacheAt = now;
-  return cache;
+const loadVaults = cachedLoader(async () => {
+  const raw = await requestJson(`${API_URL}/vaults?chainIDs=${CHAIN_IDS.join(",")}&limit=5000`);
+  if (!Array.isArray(raw)) throw new Error("Yearn returned invalid data");
+  return raw.filter(v => v.address && typeof v.chainID === "number");
+});
+export async function searchYearnVaults(query: string) {
+  const snapshot = await loadVaults();
+  return snapshot.data.map(v => yearnSummary(v, snapshot.fetchedAt, snapshot.stale))
+    .map(v => ({ v, score: fuzzyMatchScore(v.name, v.symbol, query) })).filter(v => v.score >= 0.6)
+    .sort((a, b) => b.score - a.score).map(({ v }) => v);
 }
-
-export async function searchYearnVaults(query: string): Promise<VaultSummary[]> {
-  const q = query.trim().toLowerCase();
-  if (q.length < 2) return [];
-
-  const all = await loadCache();
-  const scored = all
-    .map((v) => ({ v, score: fuzzyMatchScore(v.name, v.symbol, q) }))
-    .filter(({ score }) => score >= 0.6)
-    .sort((a, b) => b.score - a.score);
-  return scored.map(({ v }) => v).slice(0, 25);
+export async function getTopYearnVault() {
+  const snapshot = await loadVaults();
+  const eligible = snapshot.data.map(v => yearnSummary(v, snapshot.fetchedAt, snapshot.stale)).filter(eligibleRate);
+  return eligible.length ? eligible.reduce((a, b) => b.netApyPct > a.netApyPct ? b : a) : null;
 }
-
-const TOP_VAULT_MIN_TVL_USD = 50_000;
-const TOP_VAULT_MAX_APY_PCT = 100;
-
-export async function getTopYearnVault(): Promise<VaultSummary | null> {
-  try {
-    const all = await loadCache();
-    const eligible = all.filter((v) => v.tvlUsd >= TOP_VAULT_MIN_TVL_USD && v.netApyPct <= TOP_VAULT_MAX_APY_PCT);
-    if (eligible.length === 0) return null;
-    return eligible.reduce((a, b) => (b.netApyPct > a.netApyPct ? b : a));
-  } catch {
-    return null;
-  }
-}
-
-export async function fetchYearnLiveState(vault: WatchedVault): Promise<LiveState | null> {
-  try {
-    const res = await fetch(`${API_URL}/${vault.chainId}/vaults/${vault.address}`);
-    if (!res.ok) return null;
-    const raw = await res.json();
-    const summary = toSummary(raw);
-    return { netApyPct: summary.netApyPct, tvlUsd: summary.tvlUsd };
-  } catch {
-    return null;
-  }
+export async function fetchYearnLiveState(vault: WatchedVault) {
+  const raw = await requestJson(`${API_URL}/${vault.chainId}/vaults/${encodeURIComponent(vault.address)}`);
+  if (!raw?.address) return null;
+  return yearnSummary(raw, Date.now());
 }

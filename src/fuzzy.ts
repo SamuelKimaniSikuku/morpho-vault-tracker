@@ -17,21 +17,23 @@ export function levenshtein(a: string, b: string): number {
 // among the vault's own words, so a single misread character (USDC -> USDG)
 // doesn't reject an otherwise-correct match entirely.
 export function fuzzyMatchScore(name: string, symbol: string, query: string): number {
-  const hay = `${name} ${symbol}`.toLowerCase();
-  if (hay.includes(query)) return 1;
-
-  const queryWords = query.split(/\s+/).filter((w) => w.length >= 2);
+  const normalize = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const q = normalize(query);
+  const n = normalize(name);
+  const s = normalize(symbol);
+  if (!q) return 0;
+  if (n === q || s === q) return 1;
+  if (n.includes(q) || s.includes(q)) return 0.95;
+  const queryWords = q.split(/\s+/).filter((w) => w.length >= 2);
   if (queryWords.length === 0) return 0;
-  const nameWords = name.toLowerCase().split(/\s+/);
-
-  let matched = 0;
+  const nameWords = `${n} ${s}`.split(/\s+/).filter(w => w.length >= 2);
+  let score = 0;
   for (const qw of queryWords) {
-    const closeEnough = nameWords.some((nw) => {
-      if (nw.includes(qw) || qw.includes(nw)) return true;
-      const maxDist = qw.length <= 4 ? 1 : 2;
-      return levenshtein(qw, nw) <= maxDist;
-    });
-    if (closeEnough) matched++;
+    if (nameWords.includes(qw)) { score += 0.9; continue; }
+    if (qw.length >= 3 && nameWords.some(nw => nw.startsWith(qw))) { score += 0.85; continue; }
+    // Short asset symbols must match exactly: "U" must not match "Steakhouse".
+    const maxDist = qw.length < 4 ? 0 : qw.length < 8 ? 1 : 2;
+    if (maxDist && nameWords.some(nw => Math.abs(qw.length - nw.length) <= maxDist && levenshtein(qw, nw) <= maxDist)) score += 0.7;
   }
-  return matched / queryWords.length;
+  return score / queryWords.length;
 }
