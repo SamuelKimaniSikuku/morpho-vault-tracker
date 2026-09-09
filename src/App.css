@@ -1,7 +1,7 @@
 .app-shell { max-width: 1120px; margin: 0 auto; padding: 0 40px; }
 .skip-link { position: fixed; top: -100px; left: 16px; z-index: 20; background: var(--surface); padding: 12px; }
 .skip-link:focus { top: 12px; }
-.app-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 25px 0; }
+.app-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; padding: 25px 0; }
 .brand { display: flex; align-items: center; gap: 12px; font-size: 1.25rem; font-weight: 700; color: var(--text); text-decoration: none; }
 .brand-mark { width: 40px; height: 40px; display: grid; place-items: center; background: var(--primary); color: white; border-radius: 12px; }
 .brand-mark svg { width: 24px; height: 24px; }
@@ -352,7 +352,7 @@ input::file-selector-button { background: var(--accent-bg); color: var(--accent)
 }
 
 /* Keep the main journey readable; reveal supporting controls on request. */
-.header-actions { gap: 16px; }
+.header-actions { gap: 10px; flex-wrap: wrap; }
 .browse-toolbar, .simple-list-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .browse-toolbar { margin-bottom: 20px; }
 .simple-list-toolbar { margin-bottom: 4px; }
