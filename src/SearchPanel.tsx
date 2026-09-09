@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { searchVaultsWithStatus, groupVaults, type SearchReport } from "./vaults";
 import { vaultKey } from "./watchlist";
 import { filterVaults, ALL_FILTERS, networkLabel } from "./filters";
-import { FilterControls, Icon, ProtocolBadge, PROTOCOL_LABELS, formatRate, formatMoney, age, rateLabel } from "./ui";
+import { FilterControls, FixedAssetTag, Icon, ProtocolBadge, PROTOCOL_LABELS, formatRate, formatMoney, age, rateLabel } from "./ui";
 import type { VaultSummary, WatchedVault } from "./types";
 import { marketSizeLabel } from "./sources";
 
@@ -38,19 +38,19 @@ export function SearchPanel({ query, onQuery, watchlist, onAdd, onDetails, onScr
   return <section className="search-panel" aria-label="Find and add vaults">
     <div className="search-heading"><label className="search-label" htmlFor="vault-search">Find a vault</label><button className="button" type="button" onClick={onScreenshot} disabled={screenshotBusy}><Icon name="import" />{screenshotBusy ? "Reading screenshot…" : "Upload screenshot"}</button></div>
     <div className="search-field"><Icon name="search" /><input id="vault-search" type="search" autoComplete="off" maxLength={1300} placeholder="Search a name or asset, e.g. Steakhouse or USDC" value={query} onChange={e => onQuery(e.target.value)} aria-describedby="search-help" />{query && <button className="icon-button" aria-label="Clear search" onClick={() => onQuery("")}><Icon name="close" /></button>}</div>
-    <p id="search-help" className="meta">Search across six integrations. You can paste multiple names, separated by commas.</p>
+    <p id="search-help" className="meta">Search by name or asset. Separate multiple names with commas.</p>
     {busy && <p className="notice" role="status">Searching vault sources…</p>}
     {error && <p className="notice notice-warning" role="alert">{error} <button className="text-button" onClick={() => setRetry(r => r + 1)}>Retry</button></p>}
     {report && <div className="search-results">
       {report.unavailable.length > 0 && <p className="notice notice-warning" role="status">{report.unavailable.map(p => PROTOCOL_LABELS[p]).join(", ")} {report.unavailable.length === 1 ? "is" : "are"} unavailable. Results may be incomplete. <button className="text-button" onClick={() => setRetry(r => r + 1)}>Retry sources</button></p>}
       {report.stale.length > 0 && <p className="notice notice-warning">Cached results from {report.stale.map(p => PROTOCOL_LABELS[p]).join(", ")}. Check the timestamp before comparing rates.</p>}
-      <FilterControls vaults={report.vaults} value={filters} onChange={value => { setFilters(value); setLimit(20); }} label="Filter search results" />
+      <FilterControls vaults={report.vaults} value={filters} onChange={value => { setFilters(value); setLimit(20); }} label="Filter search results" categories />
       <div className="section-caption"><span role="status">{filtered.length} matching vault{filtered.length === 1 ? "" : "s"}</span><span className="meta">Select a name for details</span></div>
-      {filtered.length === 0 && report.unavailable.length < 6 && <p className="empty-inline">No vaults match this search and these filters. Try a shorter name, another asset, or clear the filters.</p>}
+      {filtered.length === 0 && report.unavailable.length < Object.keys(PROTOCOL_LABELS).length && <p className="empty-inline">No vaults match this search and these filters. Try a shorter name, another asset, or clear the filters.</p>}
       <ul className="result-list">{groups.map(group => <li className="result-group" key={vaultKey(group[0])}>
         {group.length > 1 && <p className="group-label">{group[0].name} · {group.length} matches — check the network and version</p>}
         {group.map(v => <div className="result-row" key={vaultKey(v)}>
-          <div><button className="vault-name" onClick={() => onDetails(v)}>{v.name}</button><div className="vault-meta"><ProtocolBadge protocol={v.protocol} /><span>{networkLabel(v)}</span><span>{v.badge}</span></div></div>
+          <div><button className="vault-name" onClick={() => onDetails(v)}>{v.name}</button><div className="vault-meta"><ProtocolBadge protocol={v.protocol} /><span>{networkLabel(v)}</span>{v.fixedTerm ? <FixedAssetTag /> : <span>{v.badge}</span>}</div></div>
           <div className="result-metrics"><span><strong>{formatRate(v.netApyPct)}</strong><small>{rateLabel(v.rateType)}</small></span><span><strong>{formatMoney(v.tvlUsd)}</strong><small>{marketSizeLabel(v)}</small></span></div>
           <div className="result-action"><button className={watched.has(vaultKey(v)) ? "button button-muted" : "button button-primary"} disabled={watched.has(vaultKey(v))} onClick={() => onAdd(v)}><Icon name={watched.has(vaultKey(v)) ? "check" : "plus"} />{watched.has(vaultKey(v)) ? "Watching" : "Watch"}</button><small className={v.stale ? "warning-text" : "meta"}>{v.stale ? "Stale · " : "Fetched "}{age(v.fetchedAt)}</small></div>
         </div>)}
