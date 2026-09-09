@@ -51,7 +51,7 @@ export function Sparkline({ vaultKey, updatedAt }: Props) {
       <polyline
         points={points.path}
         fill="none"
-        stroke={points.direction > 0 ? "var(--success)" : points.direction < 0 ? "var(--warning)" : "var(--accent)"}
+        stroke={points.direction < 0 ? "var(--negative)" : "var(--success)"}
         strokeWidth="1.5"
         strokeLinejoin="round"
         strokeLinecap="round"
