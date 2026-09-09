@@ -18,6 +18,7 @@ const paths = {
   explore: "m16 8-3 5-5 3 3-5 5-3ZM22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z",
   arrow: "M7 17 17 7M7 7h10v10", check: "m5 12 4 4L19 6",
   filters: "M4 7h16M4 17h16M9 4v6M15 14v6",
+  settings: "M4 7h16M4 17h16M9 4v6M15 14v6",
 };
 export function Icon({ name, className = "" }: { name: keyof typeof paths; className?: string }) {
   return <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>;
@@ -25,7 +26,7 @@ export function Icon({ name, className = "" }: { name: keyof typeof paths; class
 export function ProtocolBadge({ protocol }: { protocol: Protocol }) { return <span className={`protocol-badge protocol-${protocol}`}>{PROTOCOL_LABELS[protocol]}</span>; }
 export function FixedAssetTag() { return <span className="fixed-asset-tag" title="Fixed-term yield. The asset's price can still change.">Fixed asset</span>; }
 export function StatusBadge({ status }: { status: DataStatus }) {
-  const labels = { updated: "Updated", stale: "Stale", unavailable: "Unavailable", loading: "Checking", "no-offers": "No lend offers", "no-quote": "No quote", matured: "Matured", unlisted: "Not listed" };
+  const labels = { updated: "Updated", stale: "Update delayed", unavailable: "Data missing", loading: "Checking", "no-offers": "No rate available", "no-quote": "No rate available", matured: "Term ended", unlisted: "No longer listed" };
   return <span className={`data-status status-${status}`}>{labels[status]}</span>;
 }
 export function rateLabel(type: string) { return type === "Reported" ? "Source rate" : type; }
@@ -50,7 +51,8 @@ export function Dialog({ open, title, onClose, children, wide = false }: { open:
     if (open && !ref.current?.open) ref.current?.showModal();
     if (!open && ref.current?.open) ref.current.close();
   }, [open]);
-  return <dialog ref={ref} className={`dialog ${wide ? "dialog-wide" : ""}`} aria-labelledby={id} onClose={onClose} onClick={event => { if (event.target === ref.current) onClose(); }}>
+  // Closing one dialog to open another must not dismiss the new dialog.
+  return <dialog ref={ref} className={`dialog ${wide ? "dialog-wide" : ""}`} aria-labelledby={id} onClose={() => { if (open) onClose(); }} onClick={event => { if (event.target === ref.current) onClose(); }}>
     <div className="dialog-inner"><div className="dialog-heading"><h2 id={id}>{title}</h2><button className="icon-button" aria-label="Close dialog" onClick={onClose}><Icon name="close" /></button></div>{children}</div>
   </dialog>;
 }
@@ -59,10 +61,10 @@ export function FilterControls({ vaults, value, onChange, label, categories = fa
   const assets = [...new Set([...vaults.flatMap(assetTokens), ...(value.asset === "all" ? [] : [value.asset])])].sort();
   const active = value.protocol !== "all" || value.network !== "all" || value.asset !== "all" || (value.category && value.category !== "all");
   return <div className="filters" role="group" aria-label={label}>
-    {categories && <label><span>Category</span><select value={value.category ?? "all"} onChange={e => onChange({ ...value, category: e.target.value as VaultFilters["category"] })}><option value="all">All categories</option><option value="variable">Variable vaults</option><option value="fixed">Fixed Markets</option></select></label>}
-    <label><span>Protocol</span><select value={value.protocol} onChange={e => onChange({ ...value, protocol: e.target.value as VaultFilters["protocol"] })}><option value="all">All protocols</option>{ALL_PROTOCOLS.map(p => <option key={p} value={p}>{PROTOCOL_LABELS[p]}</option>)}</select></label>
+    {categories && <label><span>Market type</span><select value={value.category ?? "all"} onChange={e => onChange({ ...value, category: e.target.value as VaultFilters["category"] })}><option value="all">All types</option><option value="variable">Variable rates</option><option value="fixed">Fixed Markets</option></select></label>}
+    <label><span>Platform</span><select value={value.protocol} onChange={e => onChange({ ...value, protocol: e.target.value as VaultFilters["protocol"] })}><option value="all">All platforms</option>{ALL_PROTOCOLS.map(p => <option key={p} value={p}>{PROTOCOL_LABELS[p]}</option>)}</select></label>
     <label><span>Network</span><select value={value.network} onChange={e => onChange({ ...value, network: e.target.value })}><option value="all">All networks</option>{networks.map(n => <option key={n}>{n}</option>)}</select></label>
-    <label><span>Asset / symbol</span><select value={value.asset} onChange={e => onChange({ ...value, asset: e.target.value })}><option value="all">All assets</option>{assets.map(a => <option key={a}>{a}</option>)}</select></label>
+    <label><span>Coin / token</span><select value={value.asset} onChange={e => onChange({ ...value, asset: e.target.value })}><option value="all">All coins / tokens</option>{assets.map(a => <option key={a}>{a}</option>)}</select></label>
     {active && <button className="text-button" onClick={() => onChange(ALL_FILTERS)}>Clear filters</button>}
   </div>;
 }
