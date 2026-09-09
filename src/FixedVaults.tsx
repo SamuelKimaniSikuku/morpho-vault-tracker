@@ -70,11 +70,11 @@ export function FixedVaults({ watched, onAdd, onRemove, onDetails, revision, onB
   const choose = (setter: (value: string) => void, value: string) => { setter(value); setPage(0); };
 
   return <section className="fixed-content" aria-label="Choose fixed assets">
-    <div className="fixed-provider-picker"><span className="fixed-picker-label">Show vaults from</span><div className="fixed-provider-options" role="group" aria-label="Fixed vault provider">
+    <div className="fixed-provider-picker"><span className="fixed-picker-label">Show markets from</span><div className="fixed-provider-options" role="group" aria-label="Fixed market provider">
       {([...FIXED_PROTOCOLS, "all"] as const).map(p => <button key={p} type="button" aria-pressed={provider === p} onClick={() => chooseProvider(p)}>{p === "all" ? "All providers" : PROTOCOL_LABELS[p]}</button>)}
     </div></div>
     <div className="fixed-toolbar">
-      <label className="fixed-search"><span className="sr-only">Find a fixed asset</span><Icon name="search" /><input type="search" value={query} onChange={e => choose(setQuery, e.target.value)} placeholder="Find an asset or vault…" /></label>
+      <label className="fixed-search"><span className="sr-only">Find a fixed asset</span><Icon name="search" /><input type="search" value={query} onChange={e => choose(setQuery, e.target.value)} placeholder="Find an asset or market…" /></label>
       <label className="fixed-asset-select"><span className="sr-only">Asset</span><select value={asset} onChange={e => choose(setAsset, e.target.value)}><option value="all">All assets</option>{[...new Set([...assets, ...(asset === "all" ? [] : [asset])])].map(a => <option key={a}>{a}</option>)}</select></label>
       <button type="button" className="button fixed-filter-toggle" aria-expanded={filtersOpen} aria-controls={filtersId} onClick={() => setFiltersOpen(open => !open)}><Icon name="filters" />Filters{extraFilters > 0 && <span className="count">{extraFilters}</span>}</button>
     </div>
@@ -88,7 +88,7 @@ export function FixedVaults({ watched, onAdd, onRemove, onDetails, revision, onB
     {sort === "rate" && provider === "all" && <p className="meta fixed-sort-note">APR and APY are ranked separately.</p>}
     {report && filtered.length === 0 && <div className="fixed-empty"><h3>{onlyWatched ? "No selected assets here yet." : "No matching assets."}</h3><p>{onlyWatched ? "Choose Browse and add the fixed assets you want to keep in your list." : hasFilters ? "Try a different asset or clear the filters." : failedNames ? "Try another provider while this source is unavailable." : "Choose another provider to see its fixed assets."}</p>{onlyWatched && <button className="button" type="button" onClick={() => { setOnlyWatched(false); setPage(0); }}>Browse {providerName === "All providers" ? "assets" : providerName}</button>}</div>}
     {visible.length > 0 && <>
-      <div className="fixed-row fixed-table-heading" aria-hidden="true"><span>Asset / vault</span><span>Fixed rate</span><span>Maturity (UTC)</span><span>Market size (USD)</span><span>Your list</span></div>
+      <div className="fixed-row fixed-table-heading" aria-hidden="true"><span>Asset / market</span><span>Fixed rate</span><span>Maturity (UTC)</span><span>Market size (USD)</span><span>Your list</span></div>
       <ul className="fixed-list">{visible.map(v => {
         const term = v.fixedTerm!, principal = !!term.principalToken;
         const status = dataStatus({ vault: v, live: v, checkedAt: v.fetchedAt, error: v.stale }, now);
