@@ -17,11 +17,13 @@ const paths = {
   list: "M9 5h12M9 12h12M9 19h12M3 5h.01M3 12h.01M3 19h.01",
   explore: "m16 8-3 5-5 3 3-5 5-3ZM22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z",
   arrow: "M7 17 17 7M7 7h10v10", check: "m5 12 4 4L19 6",
+  filters: "M4 7h16M4 17h16M9 4v6M15 14v6",
 };
 export function Icon({ name, className = "" }: { name: keyof typeof paths; className?: string }) {
   return <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>;
 }
 export function ProtocolBadge({ protocol }: { protocol: Protocol }) { return <span className={`protocol-badge protocol-${protocol}`}>{PROTOCOL_LABELS[protocol]}</span>; }
+export function FixedAssetTag() { return <span className="fixed-asset-tag" title="Fixed-term yield. The asset's price can still change.">Fixed asset</span>; }
 export function StatusBadge({ status }: { status: DataStatus }) {
   const labels = { updated: "Updated", stale: "Stale", unavailable: "Unavailable", loading: "Checking", "no-offers": "No lend offers", "no-quote": "No quote", matured: "Matured", unlisted: "Not listed" };
   return <span className={`data-status status-${status}`}>{labels[status]}</span>;

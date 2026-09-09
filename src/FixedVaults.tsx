@@ -1,76 +1,109 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import type { LiveState, VaultSummary, WatchedVault } from "./types";
 import { FIXED_CHAINS, maturityDate, maturityRemaining, formatTokenAmount } from "./midnight";
-import { FIXED_PROTOCOLS, compareFixedRates, getFixedYieldMarkets, type FixedYieldReport } from "./fixed-yield";
+import { FIXED_PROTOCOLS, compareFixedRates, getFixedYieldMarkets, type FixedProvider, type FixedYieldReport } from "./fixed-yield";
 import { vaultKey } from "./watchlist";
 import { marketSizeLabel, vaultLink } from "./sources";
-import { Icon, ProtocolBadge, PROTOCOL_LABELS, StatusBadge, age, formatMoney, formatRate } from "./ui";
+import { FixedAssetTag, Icon, ProtocolBadge, PROTOCOL_LABELS, StatusBadge, age, formatMoney, formatRate } from "./ui";
 import { dataStatus } from "./monitoring";
 import { PrincipalMarketDetails } from "./PrincipalMarketDetails";
 
-export function FixedVaults({ watched, onAdd, onDetails, revision, onBusy, now }: {
-  watched: Set<string>; onAdd: (v: WatchedVault) => void; onDetails: (v: VaultSummary) => void;
+const PAGE_SIZE = 8;
+function savedProvider(): FixedProvider {
+  try {
+    const value = localStorage.getItem("vaultwatch:fixed-provider");
+    if (value === "all" || FIXED_PROTOCOLS.some(p => p === value)) return value as FixedProvider;
+  } catch { /* The selector works even when browser storage is unavailable. */ }
+  return "morpho";
+}
+
+export function FixedVaults({ watched, onAdd, onRemove, onDetails, revision, onBusy, now }: {
+  watched: Set<string>; onAdd: (v: WatchedVault) => void; onRemove: (v: WatchedVault) => void; onDetails: (v: VaultSummary) => void;
   revision: number; onBusy: (busy: boolean) => void; now: number;
 }) {
-  const [report, setReport] = useState<FixedYieldReport | null>(null);
-  const [query, setQuery] = useState("");
-  const [protocol, setProtocol] = useState("all");
-  const [network, setNetwork] = useState("all"), [asset, setAsset] = useState("all"), [maturity, setMaturity] = useState("all");
-  const [sort, setSort] = useState("maturity");
+  const [provider, setProvider] = useState<FixedProvider>(savedProvider);
+  const [snapshot, setSnapshot] = useState<{ provider: FixedProvider; report: FixedYieldReport } | null>(null);
+  const [query, setQuery] = useState(""), [asset, setAsset] = useState("all");
+  const [network, setNetwork] = useState("all"), [maturity, setMaturity] = useState("all");
+  const [sort, setSort] = useState("maturity"), [onlyWatched, setOnlyWatched] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false), [page, setPage] = useState(0);
+  const filtersId = useId();
+  const providerName = provider === "all" ? "All providers" : PROTOCOL_LABELS[provider];
+  const report = snapshot?.provider === provider ? snapshot.report : null;
   useEffect(() => {
+    try { localStorage.setItem("vaultwatch:fixed-provider", provider); } catch { /* Session-only preference. */ }
     let cancelled = false, running = false;
     async function update() {
       if (running) return;
       running = true; onBusy(true);
-      try { const result = await getFixedYieldMarkets(); if (!cancelled) setReport(result); }
-      catch { if (!cancelled) setReport(previous => ({ vaults: previous?.vaults.map(v => ({ ...v, stale: true })) ?? [], unavailable: ["Morpho", "Pendle", "Spectra"], stale: [] })); }
-      finally { running = false; if (!cancelled) onBusy(false); }
+      try {
+        const result = await getFixedYieldMarkets(provider);
+        if (!cancelled) setSnapshot({ provider, report: result });
+      } catch {
+        if (!cancelled) setSnapshot(previous => ({ provider, report: {
+          vaults: previous?.provider === provider ? previous.report.vaults.map(v => ({ ...v, stale: true })) : [],
+          unavailable: [providerName], stale: [],
+        } }));
+      } finally { running = false; if (!cancelled) onBusy(false); }
     }
     void update();
     const timer = setInterval(() => { void update(); }, 60_000);
     window.addEventListener("online", update);
     return () => { cancelled = true; clearInterval(timer); window.removeEventListener("online", update); };
-  }, [revision, onBusy]);
+  }, [provider, providerName, revision, onBusy]);
   const markets = useMemo(() => (report?.vaults ?? []).filter(v => v.fixedTerm!.maturity * 1000 > now), [report, now]);
   const assets = [...new Set(markets.map(v => v.assetSymbol!))].sort();
   const maturities = [...new Set(markets.map(v => v.fixedTerm!.maturity))].sort((a, b) => a - b);
-  const filtered = markets.filter(v => (protocol === "all" || v.protocol === protocol) && (network === "all" || String(v.chainId) === network)
+  const filtered = markets.filter(v => (network === "all" || String(v.chainId) === network)
     && (asset === "all" || v.assetSymbol === asset) && (maturity === "all" || String(v.fixedTerm!.maturity) === maturity)
+    && (!onlyWatched || watched.has(vaultKey(v)))
     && `${v.name} ${v.protocol} ${v.network} ${v.address} ${v.fixedTerm?.principalToken ?? ""}`.toLowerCase().includes(query.trim().toLowerCase())).sort((a, b) =>
       sort === "rate" ? compareFixedRates(a, b) : a.fixedTerm!.maturity - b.fixedTerm!.maturity || a.chainId - b.chainId || a.name.localeCompare(b.name));
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1), start = currentPage * PAGE_SIZE;
+  const visible = filtered.slice(start, start + PAGE_SIZE);
   const failedNames = [...new Set([...(report?.unavailable ?? []), ...(report?.stale ?? [])])].join(", ");
-  const clear = () => { setQuery(""); setProtocol("all"); setNetwork("all"); setAsset("all"); setMaturity("all"); };
+  const extraFilters = Number(network !== "all") + Number(maturity !== "all");
+  const hasFilters = !!query || asset !== "all" || extraFilters > 0;
+  const clear = () => { setQuery(""); setNetwork("all"); setAsset("all"); setMaturity("all"); setPage(0); };
+  const chooseProvider = (next: FixedProvider) => { if (next !== provider) { setProvider(next); clear(); } };
+  const choose = (setter: (value: string) => void, value: string) => { setter(value); setPage(0); };
 
-  return <section className="fixed-content" aria-label="Fixed-yield markets">
-    <p className="fixed-intro-note">Compare fixed-term loans and principal tokens (PT). Rates are indicative until execution; PT yields assume holding to maturity.</p>
-    <div className="fixed-filters">
-      <label className="fixed-search">Find a market<input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Asset, collateral, or market address" /></label>
-      <label>Protocol<select value={protocol} onChange={e => setProtocol(e.target.value)}><option value="all">All protocols</option>{FIXED_PROTOCOLS.map(p => <option value={p} key={p}>{PROTOCOL_LABELS[p]}</option>)}</select></label>
-      <label>Network<select value={network} onChange={e => setNetwork(e.target.value)}><option value="all">Ethereum + Base</option>{FIXED_CHAINS.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label>
-      <label>Asset<select value={asset} onChange={e => setAsset(e.target.value)}><option value="all">All assets</option>{[...new Set([...assets, ...(asset === "all" ? [] : [asset])])].map(a => <option key={a}>{a}</option>)}</select></label>
-      <label>Maturity (UTC)<select value={maturity} onChange={e => setMaturity(e.target.value)}><option value="all">All dates</option>{[...new Set([...maturities, ...(maturity === "all" ? [] : [Number(maturity)])])].map(m => <option value={m} key={m}>{maturityDate(m)}</option>)}</select></label>
-      <label>Sort by<select value={sort} onChange={e => setSort(e.target.value)}><option value="maturity">Maturity, soonest</option><option value="rate">Rate within APR / APY</option></select></label>
+  return <section className="fixed-content" aria-label="Choose fixed assets">
+    <div className="fixed-provider-picker"><span className="fixed-picker-label">Show vaults from</span><div className="fixed-provider-options" role="group" aria-label="Fixed vault provider">
+      {([...FIXED_PROTOCOLS, "all"] as const).map(p => <button key={p} type="button" aria-pressed={provider === p} onClick={() => chooseProvider(p)}>{p === "all" ? "All providers" : PROTOCOL_LABELS[p]}</button>)}
+    </div></div>
+    <div className="fixed-toolbar">
+      <label className="fixed-search"><span className="sr-only">Find a fixed asset</span><Icon name="search" /><input type="search" value={query} onChange={e => choose(setQuery, e.target.value)} placeholder="Find an asset or vault…" /></label>
+      <label className="fixed-asset-select"><span className="sr-only">Asset</span><select value={asset} onChange={e => choose(setAsset, e.target.value)}><option value="all">All assets</option>{[...new Set([...assets, ...(asset === "all" ? [] : [asset])])].map(a => <option key={a}>{a}</option>)}</select></label>
+      <button type="button" className="button fixed-filter-toggle" aria-expanded={filtersOpen} aria-controls={filtersId} onClick={() => setFiltersOpen(open => !open)}><Icon name="filters" />Filters{extraFilters > 0 && <span className="count">{extraFilters}</span>}</button>
     </div>
-    {!report && <p className="notice" role="status">Loading Morpho, Pendle, and Spectra markets…</p>}
-    {failedNames && <p className="notice notice-warning" role="status">Could not refresh {failedNames}. {markets.length ? "Previous quotes are marked stale; results may be incomplete." : "Use Check now to retry."}</p>}
-    {report && <><div className="section-caption"><span role="status">{filtered.length} of {markets.length} active markets</span><span className="meta">Quotes checked every 60 seconds</span>{(query || protocol !== "all" || network !== "all" || asset !== "all" || maturity !== "all") && <button className="text-button" onClick={clear}>Clear filters</button>}</div>
-      {sort === "rate" && <p className="meta fixed-sort-note">APR and APY are ranked separately because they use different annualisation methods.</p>}
-      {filtered.length === 0 && !failedNames && <p className="empty-inline">{markets.length ? "No markets match these filters." : "No active fixed markets are available on these networks."}</p>}
-      {filtered.length > 0 && <><div className="fixed-row fixed-table-heading" aria-hidden="true"><span>Market / protocol</span><span>Maturity (UTC)</span><span>Quoted fixed rate</span><span>Market size (USD)</span><span /></div>
-      <ul className="fixed-list">{filtered.map(v => {
+    <div className="fixed-extra-filters" id={filtersId} hidden={!filtersOpen}>
+      <label>Network<select value={network} onChange={e => choose(setNetwork, e.target.value)}><option value="all">All networks</option>{FIXED_CHAINS.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label>
+      <label>Maturity (UTC)<select value={maturity} onChange={e => choose(setMaturity, e.target.value)}><option value="all">All dates</option>{[...new Set([...maturities, ...(maturity === "all" ? [] : [Number(maturity)])])].map(m => <option value={m} key={m}>{maturityDate(m)}</option>)}</select></label>
+      <label>Sort by<select value={sort} onChange={e => choose(setSort, e.target.value)}><option value="maturity">Maturity, soonest</option><option value="rate">Rate, highest first</option></select></label>
+    </div>
+    <div className="fixed-list-toolbar"><div className="segmented" role="group" aria-label="Which fixed assets to list"><button type="button" aria-pressed={!onlyWatched} className={!onlyWatched ? "active" : ""} onClick={() => { setOnlyWatched(false); setPage(0); }}>Browse</button><button type="button" aria-pressed={onlyWatched} className={onlyWatched ? "active" : ""} onClick={() => { setOnlyWatched(true); setPage(0); }}>My selections</button></div>{hasFilters && <button type="button" className="text-button" onClick={clear}>Clear filters</button>}<span className="meta" role="status">{report ? `${filtered.length} asset${filtered.length === 1 ? "" : "s"}` : `Loading ${providerName.toLowerCase()}…`}</span></div>
+    {failedNames && <p className="notice notice-warning" role="status">Could not refresh {failedNames}. Previous quotes are marked stale. Use Check now to retry.</p>}
+    {sort === "rate" && provider === "all" && <p className="meta fixed-sort-note">APR and APY are ranked separately.</p>}
+    {report && filtered.length === 0 && <div className="fixed-empty"><h3>{onlyWatched ? "No selected assets here yet." : "No matching assets."}</h3><p>{onlyWatched ? "Choose Browse and add the fixed assets you want to keep in your list." : hasFilters ? "Try a different asset or clear the filters." : failedNames ? "Try another provider while this source is unavailable." : "Choose another provider to see its fixed assets."}</p>{onlyWatched && <button className="button" type="button" onClick={() => { setOnlyWatched(false); setPage(0); }}>Browse {providerName === "All providers" ? "assets" : providerName}</button>}</div>}
+    {visible.length > 0 && <>
+      <div className="fixed-row fixed-table-heading" aria-hidden="true"><span>Asset / vault</span><span>Fixed rate</span><span>Maturity (UTC)</span><span>Market size (USD)</span><span>Your list</span></div>
+      <ul className="fixed-list">{visible.map(v => {
         const term = v.fixedTerm!, principal = !!term.principalToken;
         const status = dataStatus({ vault: v, live: v, checkedAt: v.fetchedAt, error: v.stale }, now);
         const isWatched = watched.has(vaultKey(v)), link = vaultLink(v);
         return <li className="fixed-row" key={vaultKey(v)}>
-          <div className="fixed-identity"><button className="vault-name" onClick={() => onDetails(v)}>{principal ? <>PT {term.yieldAsset} <span className="fixed-against">({v.assetSymbol})</span></> : <>{v.assetSymbol} <span className="fixed-against">against</span> {term.collaterals.map(c => c.symbol).join(" + ")}</>}</button><div className="vault-meta"><ProtocolBadge protocol={v.protocol} /><span className="fixed-network">{v.network}</span><span>{principal ? "Principal token" : "Fixed loan"}</span></div><small className="fixed-market-id" title={v.address}>{v.address.slice(0, 8)}…{v.address.slice(-6)}</small></div>
-          <div className="metric"><span className="mobile-label">Maturity (UTC)</span><strong className="fixed-date">{maturityDate(term.maturity)}</strong><small>{maturityRemaining(term.maturity, now)}</small></div>
-          <div className="metric"><span className="mobile-label">Quoted fixed rate</span><strong>{formatRate(v.netApyPct)}</strong><small>{v.rateType} · {v.netApyPct == null ? principal ? "No quote" : "No lend offers" : principal ? "Hold to maturity" : "Before fees"}</small></div>
-          <div className="metric"><span className="mobile-label">Market size (USD)</span><strong>{formatMoney(v.tvlUsd)}</strong><small>{marketSizeLabel(v)}{v.tvlUsd == null ? " · unavailable" : ""}</small></div>
-          <div className="fixed-actions"><button className={isWatched ? "button button-muted" : "button button-primary"} disabled={isWatched} onClick={() => onAdd(v)} aria-label={`${isWatched ? "Watching" : "Watch"} ${v.name} on ${v.network}`}><Icon name={isWatched ? "check" : "plus"} />{isWatched ? "Watching" : "Watch"}</button>{link && <a className="fixed-market-link" href={link.url} target="_blank" rel="noopener noreferrer" aria-label={`${link.label}: ${v.name} on ${v.network}`}>Open market<Icon name="arrow" /></a>}<StatusBadge status={status} /><small className="meta">Fetched {age(v.fetchedAt, now)}</small></div>
+          <div className="fixed-identity"><button className="vault-name" onClick={() => onDetails(v)}>{principal ? <>PT {term.yieldAsset} <span className="fixed-against">({v.assetSymbol})</span></> : <>{v.assetSymbol} <span className="fixed-against">against</span> {term.collaterals.map(c => c.symbol).join(" + ")}</>}</button><div className="vault-meta"><FixedAssetTag /><span>{v.network}</span>{provider === "all" && <ProtocolBadge protocol={v.protocol} />}</div></div>
+          <div className="metric fixed-rate-cell"><span className="mobile-label">Fixed rate</span><strong>{formatRate(v.netApyPct)} <span className="fixed-rate-unit">{v.rateType === "Fixed APY" ? "APY" : "APR"}</span></strong>{status !== "updated" && <StatusBadge status={status} />}</div>
+          <div className="metric fixed-maturity-cell"><span className="mobile-label">Maturity (UTC)</span><strong className="fixed-date">{maturityDate(term.maturity)}</strong><small>{maturityRemaining(term.maturity, now)}</small></div>
+          <div className="metric fixed-size-cell"><span className="mobile-label">Market size (USD)</span><strong>{formatMoney(v.tvlUsd)}</strong><small>{marketSizeLabel(v)}</small></div>
+          <div className="fixed-actions"><button type="button" className={isWatched ? "button button-muted" : "button button-primary"} aria-pressed={isWatched} onClick={() => isWatched ? onRemove(v) : onAdd(v)} title={isWatched ? "Remove from your list" : "Add to your list"} aria-label={`${isWatched ? "Remove" : "Add"} ${v.name} on ${v.network} ${isWatched ? "from" : "to"} your watchlist`}><Icon name={isWatched ? "check" : "plus"} />{isWatched ? "Added" : "Add"}</button>{link && <a className="icon-button fixed-market-link" href={link.url} target="_blank" rel="noopener noreferrer" title={link.label} aria-label={`${link.label}: ${v.name} on ${v.network}`}><Icon name="arrow" /></a>}</div>
         </li>;
-      })}</ul></>}
+      })}</ul>
+      <div className="fixed-list-footer"><p className="meta">Select an asset name for details. Your selections are saved in Watchlist.</p>{pageCount > 1 && <nav className="fixed-pagination" aria-label="Fixed asset pages"><button className="button" type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} aria-label="Previous page of fixed assets">Previous</button><span role="status">{currentPage + 1} / {pageCount}</span><button className="button" type="button" disabled={currentPage + 1 >= pageCount} onClick={() => setPage(currentPage + 1)} aria-label="Next page of fixed assets">Next</button></nav>}</div>
     </>}
-    <details className="rate-guide fixed-guide"><summary>Understanding fixed quotes</summary><p>Morpho shows simple annualised lend APR before fees. Its borrow quotes, collateral limits, and order depth are available in market details. Pendle and Spectra show source-reported principal-token APY; these are not liquidity-provider or reward yields.</p><p>PT yields assume holding to maturity and are denominated in the accounting asset shown in parentheses. They are indicative market rates; fees and trade size can affect execution. Early exit depends on liquidity, and losses remain possible. Pool liquidity and Morpho's outstanding loans measure different things; neither guarantees withdrawal availability.</p><p>Automatically rolling vaults can have variable returns and are not included in this fixed-yield list.</p><div className="button-row"><a href="https://docs.morpho.org/developers/midnight/get-started/" target="_blank" rel="noopener noreferrer">Morpho guide</a><a href="https://docs.pendle.finance/pendle-v2/ProtocolMechanics/YieldTokenization/PT" target="_blank" rel="noopener noreferrer">Pendle guide</a><a href="https://docs.spectra.finance/app-help/fixed-rates" target="_blank" rel="noopener noreferrer">Spectra guide</a></div></details>
+    <details className="rate-guide fixed-guide"><summary>About fixed assets and rates</summary><p>“Fixed asset” identifies a fixed-term yield opportunity, not a stable asset price or guaranteed return. Morpho shows simple annualised lend APR before fees. Pendle and Spectra show principal-token APY for holding to maturity. Quotes can change until execution.</p><p>Borrow quotes, collateral, pool addresses, source timestamps, and liquidity details are available by selecting an asset name. Rates are checked every 60 seconds. Pool liquidity and Morpho outstanding loans measure different things; neither guarantees an exit.</p><p>Automatically rolling vaults can have variable returns and are not included.</p><div className="button-row"><a href="https://docs.morpho.org/developers/midnight/get-started/" target="_blank" rel="noopener noreferrer">Morpho guide</a><a href="https://docs.pendle.finance/pendle-v2/ProtocolMechanics/YieldTokenization/PT" target="_blank" rel="noopener noreferrer">Pendle guide</a><a href="https://docs.spectra.finance/app-help/fixed-rates" target="_blank" rel="noopener noreferrer">Spectra guide</a></div></details>
   </section>;
 }
 
@@ -81,7 +114,7 @@ export function FixedMarketDetails({ vault, live, now }: { vault: WatchedVault; 
   const collateral = term.collaterals.map(c => `${c.symbol} (${c.lltvPct == null ? "LLTV unavailable" : `${formatRate(c.lltvPct)} LLTV`})`).join(" · ");
   const link = vaultLink(vault);
   return <>
-    <div className="detail-meta"><ProtocolBadge protocol="morpho" /><span>{vault.network}</span><span className="fixed-badge">Midnight · Fixed term</span><StatusBadge status={status} /></div>
+    <div className="detail-meta"><ProtocolBadge protocol="morpho" /><span>{vault.network}</span><FixedAssetTag /><span>Midnight</span><StatusBadge status={status} /></div>
     <div className="detail-metrics"><div><span>Quoted lend APR · before fees</span><strong>{formatRate(matured ? null : live?.netApyPct)}</strong></div><div><span>Quoted borrow APR · before fees</span><strong>{formatRate(matured ? null : quotes?.borrowAprPct)}</strong></div></div>
     {matured ? <p className="notice">This market has matured. New quotes and yield-change alerts are no longer available.</p> : status === "stale" ? <p className="notice notice-warning">These are previous quotes. Alerts are paused until fresh data returns.</p> : quotes && !quotes.listed ? <p className="notice notice-warning">Morpho no longer lists this market. Previous rates are not current quotes.</p> : quotes && live?.netApyPct == null && <p className="notice">No lend offer is currently available. A borrow quote is not a lending opportunity.</p>}
     <dl className="detail-facts"><div><dt>Maturity (UTC)</dt><dd>{maturityDate(term.maturity)} · {new Date(term.maturity * 1000).toISOString().slice(11, 16)} UTC<br />{maturityRemaining(term.maturity, now)}</dd></div><div><dt>Accepted collateral</dt><dd>{collateral}</dd></div><div><dt>Outstanding loans (USD)</dt><dd>{formatMoney(live?.tvlUsd, false)}</dd></div><div><dt>Source response fetched</dt><dd>{age(live?.fetchedAt, now)}</dd></div><div><dt>Lend depth · top 3 ask levels</dt><dd>{formatTokenAmount(matured ? null : quotes?.lendDepth, vault.symbol)}</dd></div><div><dt>Borrow depth · top 3 bid levels</dt><dd>{formatTokenAmount(matured ? null : quotes?.borrowDepth, vault.symbol)}</dd></div><div><dt>Current settlement fee</dt><dd>{quotes?.settlementFeePct == null ? "Not provided" : formatRate(quotes.settlementFeePct)}</dd></div><div><dt>Continuous fee · annualised</dt><dd>{quotes?.continuousFeeAprPct == null ? "Not provided" : formatRate(quotes.continuousFeeAprPct)}</dd></div></dl>
