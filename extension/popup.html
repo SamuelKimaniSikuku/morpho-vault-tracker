@@ -2,39 +2,55 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vault Watch</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
     <header>
-      <h1>Vault Watch</h1>
-      <div class="header-actions">
-        <button id="refresh" title="Check now">↻</button>
-        <a href="https://vaultwatch.xyz" target="_blank" rel="noopener noreferrer" title="Open vaultwatch.xyz">↗</a>
-      </div>
+      <a class="brand" href="https://vaultwatch.xyz/" target="_blank" rel="noopener noreferrer"><span class="brand-mark" aria-hidden="true">↗</span>Vault Watch</a>
+      <button id="theme" class="quiet" type="button">Dark mode</button>
     </header>
-
-    <div id="empty" class="empty" hidden>
-      <p>No vaults yet.</p>
-      <p class="hint">
-        Export your watchlist from
-        <a href="https://vaultwatch.xyz" target="_blank" rel="noopener noreferrer">vaultwatch.xyz</a>
-        and import the file below. Alerts fire every 5 minutes while Chrome is open — no tab needed.
-      </p>
-    </div>
-
-    <ul id="list" class="list"></ul>
-
-    <p id="status" class="status" hidden></p>
-
-    <footer>
-      <span id="last-check" class="last-check"></span>
-      <div class="footer-actions">
-        <button id="import">Import</button>
-        <button id="export">Export</button>
+    <main>
+      <div class="heading"><h1>My watchlist <span id="count" class="count">0</span></h1><button id="refresh" type="button">Refresh</button></div>
+      <p class="intro">Rates at a glance. No wallet connection needed.</p>
+      <p id="status" class="notice" role="status" hidden></p>
+      <p id="warning" class="warning" role="status" hidden></p>
+      <div id="empty" class="empty" hidden>
+        <h2>Bring your watchlist with you</h2>
+        <p>On <a href="https://vaultwatch.xyz/" target="_blank" rel="noopener noreferrer">Vault Watch</a>, choose <strong>Export</strong> or <strong>Copy backup link</strong>. Then import it below.</p>
       </div>
-      <input id="import-file" type="file" accept="application/json,.json" hidden />
+      <ul id="list" class="list" aria-label="Watched markets"></ul>
+      <div class="list-footer"><span id="last-check">No checks yet</span><a href="https://vaultwatch.xyz/" target="_blank" rel="noopener noreferrer">Open Vault Watch ↗</a></div>
+      <details id="transfer">
+        <summary>Import &amp; backup</summary>
+        <div class="panel">
+          <p>Your website and extension lists are saved separately. Import again after changing your website list. Imports add markets; they do not remove existing ones.</p>
+          <div class="actions"><button id="import" type="button">Import file</button><button id="export" type="button">Export</button><button id="copy" type="button">Copy backup link</button></div>
+          <input id="import-file" type="file" accept="application/json,.json" hidden />
+          <form id="link-form">
+            <label for="backup-link">Or paste a Vault Watch backup link</label>
+            <textarea id="backup-link" rows="2" placeholder="https://vaultwatch.xyz/#w=…" spellcheck="false"></textarea>
+            <button type="submit">Import link</button>
+          </form>
+        </div>
+      </details>
+      <details>
+        <summary>Alert settings</summary>
+        <form id="settings" class="panel">
+          <label class="check"><input id="alerts-enabled" type="checkbox" checked /> Notify me about changes</label>
+          <label for="direction">Which changes?</label>
+          <select id="direction"><option value="both">Increases and decreases</option><option value="drops">Decreases only</option></select>
+          <div class="fields"><label>Rate change (percentage points)<input id="rate-threshold" type="number" min="0.1" max="100" step="0.1" value="1" required /></label><label>Market size change (%)<input id="size-threshold" type="number" min="0.1" max="100" step="0.1" value="10" required /></label></div>
+          <p>For example, 5% to 4% is a change of 1 percentage point. Alerts compare consecutive fresh readings. These settings apply to this extension.</p>
+          <div class="actions"><button type="submit">Save settings</button><button id="test" type="button">Send test notification</button></div>
+        </form>
+      </details>
+    </main>
+    <footer>
+      <p>Checks about every 5 minutes while Chrome is running and your device is awake. Sleep and browser scheduling can delay checks.</p>
+      <p>Fixed rates are current market quotes, not your locked return. Rates can change. Crypto can lose value. <a href="privacy.html" target="_blank" rel="noopener noreferrer">Privacy</a></p>
     </footer>
-
-    <script type="module" src="popup.js"></script>
+    <script type="module" src="popup.ts"></script>
   </body>
 </html>

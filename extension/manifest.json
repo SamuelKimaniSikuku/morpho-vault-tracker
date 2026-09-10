@@ -1,14 +1,18 @@
 {
   "manifest_version": 3,
   "name": "Vault Watch",
-  "version": "1.0.0",
-  "description": "Track DeFi vault yields across Morpho, Yearn, Beefy, Aave, and Compound. Alerts when APY or TVL moves - no wallet, no account.",
+  "version": "1.1.0",
+  "minimum_chrome_version": "120",
+  "description": "Follow vaults and fixed markets. Check rates and get change alerts while Chrome is running. No wallet connection needed.",
   "permissions": ["storage", "alarms", "notifications"],
   "host_permissions": [
     "https://blue-api.morpho.org/*",
     "https://ydaemon.yearn.fi/*",
     "https://api.beefy.finance/*",
-    "https://yields.llama.fi/*"
+    "https://yields.llama.fi/*",
+    "https://api.morpho.org/*",
+    "https://api-v2.pendle.finance/*",
+    "https://api.spectra.finance/*"
   ],
   "background": {
     "service_worker": "background.js",

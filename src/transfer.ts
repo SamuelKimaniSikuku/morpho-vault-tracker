@@ -29,7 +29,7 @@ export function exportWatchlist(watchlist: WatchedVault[]) {
   URL.revokeObjectURL(url);
 }
 
-function isValidVault(raw: any): raw is WatchedVault {
+export function isValidVault(raw: any): raw is WatchedVault {
   const principal = ["pendle", "spectra"].includes(raw?.protocol);
   if (principal && !raw.fixedTerm) return false;
   if (raw?.fixedTerm != null && !((raw.protocol === "morpho" || principal) && [1, 8453].includes(raw.chainId)
