@@ -61,10 +61,10 @@ export function FilterControls({ vaults, value, onChange, label, categories = fa
   const assets = [...new Set([...vaults.flatMap(assetTokens), ...(value.asset === "all" ? [] : [value.asset])])].sort();
   const active = value.protocol !== "all" || value.network !== "all" || value.asset !== "all" || (value.category && value.category !== "all");
   return <div className="filters" role="group" aria-label={label}>
-    {categories && <label><span>Market type</span><select value={value.category ?? "all"} onChange={e => onChange({ ...value, category: e.target.value as VaultFilters["category"] })}><option value="all">All types</option><option value="variable">Variable rates</option><option value="fixed">Fixed Markets</option></select></label>}
+    {categories && <label><span>Rate type</span><select value={value.category ?? "all"} onChange={e => onChange({ ...value, category: e.target.value as VaultFilters["category"] })}><option value="all">All types</option><option value="variable">Variable rates</option><option value="fixed">Fixed Markets</option></select></label>}
     <label><span>Platform</span><select value={value.protocol} onChange={e => onChange({ ...value, protocol: e.target.value as VaultFilters["protocol"] })}><option value="all">All platforms</option>{ALL_PROTOCOLS.map(p => <option key={p} value={p}>{PROTOCOL_LABELS[p]}</option>)}</select></label>
     <label><span>Network</span><select value={value.network} onChange={e => onChange({ ...value, network: e.target.value })}><option value="all">All networks</option>{networks.map(n => <option key={n}>{n}</option>)}</select></label>
-    <label><span>Coin / token</span><select value={value.asset} onChange={e => onChange({ ...value, asset: e.target.value })}><option value="all">All coins / tokens</option>{assets.map(a => <option key={a}>{a}</option>)}</select></label>
+    <label><span>Coin</span><select value={value.asset} onChange={e => onChange({ ...value, asset: e.target.value })}><option value="all">All coins</option>{assets.map(a => <option key={a}>{a}</option>)}</select></label>
     {active && <button className="text-button" onClick={() => onChange(ALL_FILTERS)}>Clear filters</button>}
   </div>;
 }

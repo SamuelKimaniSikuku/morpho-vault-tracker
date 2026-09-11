@@ -1,4 +1,4 @@
-import { searchMorphoVaults, fetchMorphoLiveState, getTopMorphoVault } from "./morpho";
+import { searchMorphoV1Vaults, searchMorphoV2Vaults, fetchMorphoLiveState, getTopMorphoVault } from "./morpho";
 import { fetchFixedLiveState } from "./midnight";
 import { pendleClient, spectraClient } from "./principal";
 import { searchYearnVaults, fetchYearnLiveState, getTopYearnVault } from "./yearn";
@@ -7,12 +7,13 @@ import { searchAaveVaults, fetchAaveLiveState, getTopAaveVault } from "./aave";
 import { searchCompoundVaults, fetchCompoundLiveState, getTopCompoundVault } from "./compound";
 import { searchDefiVaults, fetchDefiLiveState, getTopDefiVault } from "./defi";
 import { fuzzyMatchScore } from "./fuzzy";
+import { createVaultSearch } from "./search-engine";
 import type { VaultSummary, WatchedVault, LiveState, Protocol } from "./types";
 
 export type { VaultSummary, WatchedVault, LiveState, Protocol } from "./types";
 
 const PROVIDERS = {
-  morpho: searchMorphoVaults, yearn: searchYearnVaults, beefy: searchBeefyVaults,
+  yearn: searchYearnVaults, beefy: searchBeefyVaults,
   aave: searchAaveVaults, compound: searchCompoundVaults, defi: searchDefiVaults,
   pendle: async (_query: string) => principalSearch(pendleClient),
   spectra: async (_query: string) => principalSearch(spectraClient),
@@ -22,7 +23,7 @@ async function principalSearch(client: typeof pendleClient) {
   if (report.unavailable.length === 2) throw new Error("Fixed-yield source unavailable");
   return report.vaults;
 }
-export interface SearchReport { vaults: VaultSummary[]; unavailable: Protocol[]; stale: Protocol[] }
+export type { SearchReport } from "./search-engine";
 
 function groupKey(v: VaultSummary): string {
   return `${v.protocol}:${v.name.trim().toLowerCase()}`;
@@ -46,13 +47,13 @@ export function groupVaults(vaults: VaultSummary[]): VaultSummary[][] {
   return order.map((k) => groups.get(k)!);
 }
 
-export async function searchVaultsWithStatus(query: string): Promise<SearchReport> {
-  const protocols = Object.keys(PROVIDERS) as Protocol[];
-  const results = await Promise.allSettled(protocols.map(p => PROVIDERS[p](query)));
-  const unavailable = protocols.filter((_, i) => results[i].status === "rejected");
-  const flat = results.flatMap(result => result.status === "fulfilled" ? result.value : []);
-  return { vaults: rankVaults(flat, query), unavailable, stale: [...new Set(flat.filter(v => v.stale).map(v => v.protocol))] };
-}
+const search = createVaultSearch([
+  { protocol: "morpho", search: searchMorphoV1Vaults },
+  { protocol: "morpho", search: searchMorphoV2Vaults },
+  ...Object.entries(PROVIDERS).map(([protocol, provider]) => ({ protocol: protocol as Protocol, search: provider })),
+], rankVaults);
+export const searchVaultsWithStatus = search.run;
+export const subscribeVaultSearch = search.subscribe;
 
 export async function searchVaults(query: string): Promise<VaultSummary[]> {
   return (await searchVaultsWithStatus(query)).vaults;

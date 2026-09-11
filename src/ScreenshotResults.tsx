@@ -28,7 +28,7 @@ function ScreenshotResult({ row, index, watched, onAdd, onDetails, onSearch }: O
   const exact = matches.length === 1 && screenshotNameMatches(matches[0].name, candidate.name);
   async function retry() {
     setBusy(true); setRetryError("");
-    try { setReport(await searchVaultsWithStatus(candidate.name)); }
+    try { setReport(await searchVaultsWithStatus(candidate.name, true)); }
     catch { setRetryError("Search could not finish. Retry or edit the name in search."); }
     finally { setBusy(false); }
   }

@@ -29,19 +29,16 @@ const loadV2 = cachedLoader(async () => {
   }
   return items;
 });
-export async function searchMorphoVaults(query: string) {
-  const [data, v2] = await Promise.all([
-    gql(`query($search: String!) { vaults(where: { search: $search }, first: 100) {
+export async function searchMorphoV1Vaults(query: string): Promise<VaultSummary[]> {
+  const data = await gql(`query($search: String!) { vaults(where: { search: $search }, first: 100) {
       items { address name symbol asset { symbol } chain { id network } state { netApy totalAssetsUsd } }
-    } }`, { search: query.trim() }).then(data => ({ data, fetchedAt: Date.now() })), loadV2(),
-  ]);
-  const all = [...data.data.vaults.items.map((v: any) => summary(v, "v1", data.fetchedAt)), ...v2.data.map(v => summary(v, "v2", v2.fetchedAt, v2.stale))];
-  const seen = new Set<string>();
-  return all.filter(v => {
-    const key = `${v.chainId}:${v.address.toLowerCase()}`;
-    if (seen.has(key) || fuzzyMatchScore(v.name, v.symbol, query) < 0.6) return false;
-    seen.add(key); return true;
-  });
+    } }`, { search: query.trim() });
+  const at = Date.now();
+  return data.vaults.items.map((v: any) => summary(v, "v1", at)).filter((v: VaultSummary) => fuzzyMatchScore(v.name, v.symbol, query) >= 0.6);
+}
+export async function searchMorphoV2Vaults(query: string): Promise<VaultSummary[]> {
+  const v2 = await loadV2();
+  return v2.data.map(v => summary(v, "v2", v2.fetchedAt, v2.stale)).filter(v => fuzzyMatchScore(v.name, v.symbol, query) >= 0.6);
 }
 export async function getTopMorphoVault() {
   const filter = "where: { totalAssetsUsd_gte: 50000, netApy_lte: 1 }, orderBy: NetApy, orderDirection: Desc, first: 1";
