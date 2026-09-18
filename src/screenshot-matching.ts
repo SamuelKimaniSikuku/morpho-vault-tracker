@@ -20,3 +20,16 @@ export function matchScreenshotVaults(candidate: OcrCandidate, vaults: VaultSumm
   return eligible.map(v => ({ v, score: fuzzyMatchScore(v.name, v.symbol, candidate.name) }))
     .filter(item => item.score >= .75).sort((a, b) => b.score - a.score).map(item => item.v);
 }
+
+/** Only prepare a selection when identity is exact and the relevant source completed.
+ * The user still reviews and explicitly adds it. Missing network/version never
+ * turns an ambiguous result into an automatic selection. */
+export function defaultScreenshotMatch(row: ScreenshotRow): VaultSummary | null {
+  const matches = matchScreenshotVaults(row.candidate, row.report.vaults);
+  if (row.candidate.chainId == null || matches.length !== 1) return null;
+  const match = matches[0];
+  if (!screenshotNameMatches(match.name, row.candidate.name)
+    || row.report.unavailable.includes(match.protocol)
+    || row.report.pending?.includes(match.protocol)) return null;
+  return match;
+}

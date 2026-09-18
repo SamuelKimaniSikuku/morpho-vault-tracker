@@ -18,11 +18,11 @@ function savedProvider(): FixedProvider {
   return "morpho";
 }
 
-export function FixedVaults({ watched, onAdd, onRemove, onDetails, revision, onBusy, now }: {
+export function FixedVaults({ watched, onAdd, onRemove, onDetails, revision, onBusy, now, yieldOnly = false }: {
   watched: Set<string>; onAdd: (v: WatchedVault) => void; onRemove: (v: WatchedVault) => void; onDetails: (v: VaultSummary) => void;
-  revision: number; onBusy: (busy: boolean) => void; now: number;
+  yieldOnly?: boolean; revision: number; onBusy: (busy: boolean) => void; now: number;
 }) {
-  const [provider, setProvider] = useState<FixedProvider>(savedProvider);
+  const [provider, setProvider] = useState<FixedProvider>(() => yieldOnly && ["morpho", "all"].includes(savedProvider()) ? "pendle" : savedProvider());
   const [snapshot, setSnapshot] = useState<{ provider: FixedProvider; report: FixedYieldReport } | null>(null);
   const [query, setQuery] = useState(""), [asset, setAsset] = useState("all");
   const [network, setNetwork] = useState("all"), [maturity, setMaturity] = useState("all");
@@ -72,7 +72,7 @@ export function FixedVaults({ watched, onAdd, onRemove, onDetails, revision, onB
 
   return <section className="fixed-content" aria-label="Choose fixed assets">
     <div className="fixed-toolbar">
-      <label className="fixed-platform"><span>Platform</span><select value={provider} onChange={e => chooseProvider(e.target.value as FixedProvider)}>{([...FIXED_PROTOCOLS, "all"] as const).map(p => <option key={p} value={p}>{p === "all" ? "All platforms" : PROTOCOL_LABELS[p]}</option>)}</select></label>
+      <label className="fixed-platform"><span>Platform</span><select value={provider} onChange={e => chooseProvider(e.target.value as FixedProvider)}>{(yieldOnly ? (["pendle", "spectra"] as const) : ([...FIXED_PROTOCOLS, "all"] as const)).map(p => <option key={p} value={p}>{p === "all" ? "All platforms" : PROTOCOL_LABELS[p]}</option>)}</select></label>
       <label className="fixed-search"><span className="sr-only">Find a fixed market</span><Icon name="search" /><input type="search" value={query} onChange={e => choose(setQuery, e.target.value)} placeholder="Search a coin or market" /></label>
       <button type="button" className="button fixed-filter-toggle" aria-expanded={filtersOpen} aria-controls={filtersId} onClick={() => setFiltersOpen(open => !open)}><Icon name="filters" />Filters{extraFilters > 0 && <span className="count">{extraFilters}</span>}</button>
     </div>
@@ -101,7 +101,7 @@ export function FixedVaults({ watched, onAdd, onRemove, onDetails, revision, onB
           <div className="fixed-actions"><button type="button" className={isWatched ? "button button-muted" : "button button-primary"} aria-pressed={isWatched} onClick={() => isWatched ? onRemove(v) : onAdd(v)} title={isWatched ? "Remove from your list" : "Add to your list"} aria-label={`${isWatched ? "Remove" : "Add"} ${v.name} on ${v.network} ${isWatched ? "from" : "to"} your watchlist`}><Icon name={isWatched ? "check" : "plus"} />{isWatched ? "Added" : "Add"}</button></div>
         </li>;
       })}</ul>
-      <div className="fixed-list-footer"><p className="meta">Select a market name for details. Added markets appear in My watchlist.</p>{pageCount > 1 && <nav className="fixed-pagination" aria-label="Fixed asset pages"><button className="button" type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} aria-label="Previous page of fixed assets">Previous</button><span role="status">{currentPage + 1} / {pageCount}</span><button className="button" type="button" disabled={currentPage + 1 >= pageCount} onClick={() => setPage(currentPage + 1)} aria-label="Next page of fixed assets">Next</button></nav>}</div>
+      <div className="fixed-list-footer"><p className="meta">Select a market name for details. Added items appear in Your vaults.</p>{pageCount > 1 && <nav className="fixed-pagination" aria-label="Fixed asset pages"><button className="button" type="button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)} aria-label="Previous page of fixed assets">Previous</button><span role="status">{currentPage + 1} / {pageCount}</span><button className="button" type="button" disabled={currentPage + 1 >= pageCount} onClick={() => setPage(currentPage + 1)} aria-label="Next page of fixed assets">Next</button></nav>}</div>
     </>}
     <RateGuide /><details className="rate-guide fixed-guide"><summary>More about fixed markets</summary><p>“Fixed asset” identifies a fixed-term yield opportunity, not a stable asset price or guaranteed return. Morpho shows simple annualised lend APR before fees. Pendle and Spectra show principal-token APY for holding to maturity. Quotes can change until execution.</p><p>Borrow quotes, collateral, pool addresses, source timestamps, and liquidity details are available by selecting an asset name. Rates are checked every 60 seconds. Pool liquidity and Morpho outstanding loans measure different things; neither guarantees an exit.</p><p>Automatically rolling vaults can have variable returns and are not included.</p><div className="button-row"><a href="https://docs.morpho.org/developers/midnight/get-started/" target="_blank" rel="noopener noreferrer">Morpho guide</a><a href="https://docs.pendle.finance/pendle-v2/ProtocolMechanics/YieldTokenization/PT" target="_blank" rel="noopener noreferrer">Pendle guide</a><a href="https://docs.spectra.finance/app-help/fixed-rates" target="_blank" rel="noopener noreferrer">Spectra guide</a></div></details>
   </section>;

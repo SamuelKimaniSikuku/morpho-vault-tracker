@@ -20,6 +20,8 @@ export interface FixedQuotes {
 }
 
 export interface WatchedVault {
+  addedFrom?: "screenshot";
+  uploadName?: string;
   protocol: Protocol;
   address: string;
   chainId: number;
@@ -36,6 +38,8 @@ export interface WatchedVault {
 export interface LiveState {
   netApyPct: number | null;
   tvlUsd: number | null;
+  /** Available withdrawal liquidity reported by the source, never inferred from TVL. */
+  liquidityUsd?: number | null;
   /** When this browser successfully received the underlying API response. */
   fetchedAt: number;
   stale: boolean;

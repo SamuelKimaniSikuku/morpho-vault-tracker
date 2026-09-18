@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { candidatesFromWords, detectNetworkIcon, type OcrWord, type Pixels, type OcrCandidate } from "../src/ocr-layout";
-import { matchScreenshotVaults, screenshotNameMatches } from "../src/screenshot-matching";
+import { defaultScreenshotMatch, matchScreenshotVaults, screenshotNameMatches } from "../src/screenshot-matching";
 import type { VaultSummary } from "../src/types";
 
 const word = (text: string, x: number, y: number, width = 70): OcrWord => ({ text, confidence: 95, bbox: { x0: x, y0: y, x1: x + width, y1: y + 20 } });
@@ -78,5 +78,27 @@ describe("exact vault constraints", () => {
   it("lets the user correct a detected network without weakening the version constraint", () => {
     const ethereum = vault({ chainId: 1 });
     expect(matchScreenshotVaults(candidate, [vault(), ethereum, vault({ chainId: 1, morphoVersion: "v1" })], 1, "v2")).toEqual([ethereum]);
+  });
+});
+
+describe("compact screenshot review", () => {
+  it("prepares an exact, unambiguous match for review", () => {
+    const correct = vault();
+    expect(defaultScreenshotMatch({ candidate, report: { vaults: [correct], unavailable: [], stale: [] } })).toBe(correct);
+  });
+  it("requires a choice when the network was not read", () => {
+    expect(defaultScreenshotMatch({ candidate: { ...candidate, chainId: null }, report: { vaults: [vault()], unavailable: [], stale: [] } })).toBeNull();
+  });
+  it("does not guess between V1 and V2, even if one has higher deposits", () => {
+    expect(defaultScreenshotMatch({ candidate: { ...candidate, version: null }, report: { vaults: [vault(), vault({ address: "0x2", badge: "V1", morphoVersion: "v1", tvlUsd: 1e10 })], unavailable: [], stale: [] } })).toBeNull();
+  });
+  it("requires a choice when a provider is unavailable or still loading", () => {
+    for (const status of [{ unavailable: ["morpho" as const] }, { pending: ["morpho" as const] }]) {
+      expect(defaultScreenshotMatch({ candidate, report: { vaults: [vault()], unavailable: [], stale: [], ...status } })).toBeNull();
+    }
+  });
+  it("does not prepare fuzzy names or duplicate contract matches", () => {
+    expect(defaultScreenshotMatch({ candidate, report: { vaults: [vault({ name: "Example USDC Vaut" })], unavailable: [], stale: [] } })).toBeNull();
+    expect(defaultScreenshotMatch({ candidate, report: { vaults: [vault(), vault({ address: "0x2" })], unavailable: [], stale: [] } })).toBeNull();
   });
 });
