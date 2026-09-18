@@ -23,7 +23,7 @@
 .simple-vault-metric > strong { display: inline-block; font-size: 1rem; font-weight: 600; }
 .simple-vault-metric > small { display: block; color: var(--muted); font-size: .8125rem; margin-top: 3px; }
 .liquidity-trend { display: block; max-width: 100%; height: auto; margin-top: 4px; color: var(--accent); }
-.liquidity-history-empty { display: block; margin-top: 4px; color: var(--muted); font-size: .6875rem; line-height: 28px; }
+.liquidity-history-empty { display: block; margin-top: 4px; color: var(--muted); font-size: .6875rem; line-height: 38px; }
 .liquidity-history-note { display: block; margin-top: 4px; }
 .mobile-metric-label { display: none; }
 .vault-remove { background: transparent; border-color: transparent; color: var(--muted); }

@@ -74,18 +74,33 @@ describe("liquidity line chart", () => {
   it("draws a flat line for unchanged liquidity, including zero", () => {
     recordLiquidity(KEY, live({ liquidityUsd: 0, fetchedAt: NOW - 60_000 }), NOW);
     recordLiquidity(KEY, live({ liquidityUsd: 0 }), NOW);
-    expect(chart()).toContain('points="3.00,14.00 101.00,14.00"');
+    expect(chart()).toContain('points="4.00,19.00 132.00,19.00"');
     expect(chart()).toContain('aria-label="Liquidity history: $0');
     expect(chart()).not.toMatch(/NaN|Infinity/);
+    expect(chart()).not.toContain('class="liquidity-gap"');
   });
 
-  it("uses actual timestamps and leaves a break during a monitoring gap", () => {
+  it("uses actual timestamps and connects monitoring gaps with clearly explained dashed lines", () => {
     const points = [{ ts: NOW - 3_600_000, usd: 40 }, { ts: NOW - 3_540_000, usd: 50 }, { ts: NOW, usd: 60 }];
     for (const point of points) recordLiquidity(KEY, live({ fetchedAt: point.ts, liquidityUsd: point.usd }), point.ts);
     const markup = chart();
     expect(markup.match(/<polyline/g)).toHaveLength(1);
-    expect(markup).toContain('points="3.00,25.00 4.63,14.00"');
-    expect(markup).toContain('cx="101" cy="3"');
+    expect(markup).toContain('points="4.00,34.00 6.13,19.00"');
+    expect(markup).toContain('class="liquidity-gap" x1="6.133333333333333" y1="19" x2="132" y2="4"');
+    expect(markup).toContain('stroke-dasharray="5 3"');
+    expect(markup).toContain('cx="132" cy="4"');
     expect(markup).toContain("Range $40 to $60");
+    expect(markup).toContain("changes within those gaps are unknown");
+    expect(getLiquidityHistory(KEY, NOW)).toEqual(points);
+  });
+
+  it("shows a connected trend even when every observation is separated by a long gap", () => {
+    const points = [{ ts: NOW - 7_200_000, usd: 40 }, { ts: NOW - 3_600_000, usd: 50 }, { ts: NOW, usd: 45 }];
+    for (const point of points) recordLiquidity(KEY, live({ fetchedAt: point.ts, liquidityUsd: point.usd }), point.ts);
+    const markup = chart();
+    expect(markup.match(/class="liquidity-gap"/g)).toHaveLength(2);
+    expect(markup).toContain('x1="4" y1="34" x2="68" y2="4"');
+    expect(markup).toContain('x1="68" y1="4" x2="132" y2="19"');
+    expect(markup).not.toMatch(/NaN|Infinity/);
   });
 });
