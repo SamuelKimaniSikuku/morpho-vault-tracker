@@ -39,8 +39,12 @@ export function LoansPanel({ watchlist, readings, onAdd, onDetails, now }: {
       rateType: "Fixed APR" as const,
     }) : [...current.values()]).filter(v =>
       (network === "all" || v.chainId.toString() === network) && `${v.name} ${v.assetSymbol} ${v.network}`.toLowerCase().includes(query.toLowerCase())
-    );
-  }, [report, savedOnly, watchlist, readings, network, query]);
+    ).sort((a, b) => {
+      const hasOffer = (v: VaultSummary) => v.fixedTerm!.maturity * 1000 > now && !v.stale &&
+        (mode === "borrow" ? v.fixedQuotes?.borrowAprPct != null && (v.fixedQuotes.borrowDepth ?? 0) > 0 : v.netApyPct != null && (v.fixedQuotes?.lendDepth ?? 0) > 0);
+      return Number(hasOffer(b)) - Number(hasOffer(a)) || a.fixedTerm!.maturity - b.fixedTerm!.maturity;
+    });
+  }, [report, savedOnly, watchlist, readings, network, query, mode, now]);
   return <section className="loans-panel" aria-label="Loan markets">
     <div className="workspace-heading"><div><h1>Loans</h1><p>Fixed-term markets on Morpho.</p></div><div className="segmented" role="group" aria-label="Loan direction"><button className={mode === "borrow" ? "active" : ""} aria-pressed={mode === "borrow"} onClick={() => setMode("borrow")}>Borrow</button><button className={mode === "lend" ? "active" : ""} aria-pressed={mode === "lend"} onClick={() => setMode("lend")}>Lend</button></div></div>
     <div className="loans-toolbar"><div className="search-field"><Icon name="search" /><input aria-label="Search loans" placeholder="Search a coin, like USDC" value={query} onChange={e => { setQuery(e.target.value); setLimit(8); }} /></div><select aria-label="Loan network" value={network} onChange={e => { setNetwork(e.target.value); setLimit(8); }}><option value="all">All networks</option><option value="1">Ethereum</option><option value="8453">Base</option></select><button className="icon-button" aria-label="Refresh loans" disabled={busy} onClick={() => setRevision(n => n + 1)}><Icon name="refresh" className={busy ? "spinning" : ""} /></button></div>

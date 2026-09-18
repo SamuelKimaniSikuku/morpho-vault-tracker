@@ -8,16 +8,15 @@ import type { VaultSummary } from "./types";
 
 interface Props {
   rows: ScreenshotRow[]; watched: Set<string>;
+  choices: Record<string, string>; onChoose: (id: string, key: string) => void;
+  onUpdate: (row: ScreenshotRow) => void;
   onAdd: (vaults: VaultSummary[]) => void;
   onSearch: (query: string) => void;
 }
 
-export function ScreenshotResults({ rows, watched, onAdd, onSearch }: Props) {
-  const [updates, setUpdates] = useState<Record<string, ScreenshotRow>>({});
-  const [choices, setChoices] = useState<Record<string, string>>({});
+export function ScreenshotResults({ rows, watched, choices, onChoose, onUpdate, onAdd, onSearch }: Props) {
   const [retrying, setRetrying] = useState<string | null>(null);
-  const resolved = rows.map(original => {
-    const row = updates[original.candidate.id] ?? original;
+  const resolved = rows.map(row => {
     const matches = matchScreenshotVaults(row.candidate, row.report.vaults);
     const initial = defaultScreenshotMatch(row);
     const key = choices[row.candidate.id] ?? (initial ? vaultKey(initial) : "");
@@ -29,7 +28,7 @@ export function ScreenshotResults({ rows, watched, onAdd, onSearch }: Props) {
     setRetrying(row.candidate.id);
     try {
       const report = await searchVaultsWithStatus(row.candidate.name, true);
-      setUpdates(previous => ({ ...previous, [row.candidate.id]: { ...row, report } }));
+      onUpdate({ ...row, report });
     } catch { /* Keep the row and retry control when sources are unavailable. */ }
     finally { setRetrying(null); }
   }
@@ -42,7 +41,7 @@ export function ScreenshotResults({ rows, watched, onAdd, onSearch }: Props) {
       const isAdded = !!chosen && watched.has(vaultKey(chosen));
       return <li className="upload-review-row" key={row.candidate.id}>
         <div className="upload-review-name"><strong>{row.candidate.name}</strong>
-          {chosen ? <div className="upload-match-summary"><span>{networkLabel(chosen)} · {chosen.badge} · {PROTOCOL_LABELS[chosen.protocol]}</span>{!isAdded && <button className="text-button inline-link" onClick={() => setChoices(previous => ({ ...previous, [row.candidate.id]: "" }))}>Change</button>}</div> : matches.length > 0 ? <label><span className="sr-only">Choose a match for {row.candidate.name}</span><select value={key} onChange={event => setChoices(previous => ({ ...previous, [row.candidate.id]: event.target.value }))}>
+          {chosen ? <div className="upload-match-summary"><span>{networkLabel(chosen)} · {chosen.badge} · {PROTOCOL_LABELS[chosen.protocol]}</span>{!isAdded && <button className="text-button inline-link" onClick={() => onChoose(row.candidate.id, "")}>Change</button>}</div> : matches.length > 0 ? <label><span className="sr-only">Choose a match for {row.candidate.name}</span><select value={key} onChange={event => onChoose(row.candidate.id, event.target.value)}>
             <option value="">Choose network / version…</option>
             {matches.map(v => <option value={vaultKey(v)} key={vaultKey(v)}>{networkLabel(v)} · {v.badge} · {PROTOCOL_LABELS[v.protocol]}{v.name !== row.candidate.name ? ` · ${v.name}` : ""}{matches.some(other => vaultKey(other) !== vaultKey(v) && other.chainId === v.chainId && other.badge === v.badge && other.protocol === v.protocol) ? ` · ${v.address.slice(0, 8)}…${v.address.slice(-4)}` : ""}</option>)}
           </select></label> : <span className="meta">No match found</span>}
