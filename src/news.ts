@@ -100,6 +100,7 @@ export async function getVaultNews(window: NewsWindow = "1d", pools = undefined 
   const moveOf = (p: LlamaPool) => (window === "7d" ? p.apyPct7D : p.apyPct1D);
   const eligible = pools.filter(
     (p) =>
+      Object.hasOwn(PROJECT_TO_PROTOCOL, p.project) &&
       Number.isFinite(p.tvlUsd) && (p.tvlUsd ?? 0) >= MIN_TVL_USD &&
       p.apy != null && Number.isFinite(p.apy) &&
       p.apy >= 0 &&

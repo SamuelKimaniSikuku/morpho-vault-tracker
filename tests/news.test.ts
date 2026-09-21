@@ -18,4 +18,9 @@ describe("vault news", () => {
     const invalid = [pool("missing", { apyPct1D: null }), pool("infinite", { apyPct1D: Infinity }), pool("bad-rate", { apy: NaN }), pool("bad-size", { tvlUsd: Infinity }), pool("small", { apyPct1D: .9 }), pool("dust", { tvlUsd: 999_999 })];
     expect(await getVaultNews("1d", invalid)).toEqual([]);
   });
+
+  it("shows integrated vault and lending platforms rather than unrelated trading pools", async () => {
+    const pools = [pool("trading", { project: "uniswap-v3", apyPct1D: 80 }), pool("morpho"), pool("yearn", { project: "yearn-finance" })];
+    expect((await getVaultNews("1d", pools)).map(p => p.id)).toEqual(["morpho", "yearn"]);
+  });
 });

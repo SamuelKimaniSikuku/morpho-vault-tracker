@@ -37,6 +37,11 @@ describe("vault rankings", () => {
     expect(rankNewsVaults([missingRate], "liquidity", NOW)).toEqual([missingRate]);
   });
 
+  it("keeps unrelated trading pools out of vault and lending rankings", () => {
+    const integrated = vault(1), tradingPool = vault(2, { protocol: "defi", name: "Uniswap trading pool", tvlUsd: 1e9, liquidityUsd: 1e8, netApyPct: 99 });
+    for (const ranking of ["biggest", "liquidity", "yield"] as const) expect(rankNewsVaults([tradingPool, integrated], ranking, NOW)).toEqual([integrated]);
+  });
+
   it("excludes stale and invalid data from every ranking", () => {
     const good = vault(1);
     const invalid = [vault(2, { stale: true }), vault(3, { fetchedAt: NOW - STALE_AFTER_MS - 1 }), vault(4, { fetchedAt: NOW + 1 }), vault(5, { tvlUsd: Infinity }), vault(6, { fetchedAt: NaN })];
@@ -65,6 +70,6 @@ describe("ranking source failures", () => {
     const report = await getVaultRankings();
     expect(report.vaults).toHaveLength(1);
     expect(report.vaults[0]).toMatchObject({ name: "Working vault", liquidityUsd: 20_000 });
-    expect(report.unavailable).toEqual(["Morpho V2", "Yearn", "Beefy", "Aave", "Compound", "Other DeFi"]);
+    expect(report.unavailable).toEqual(["Morpho V2", "Yearn", "Beefy", "Aave", "Compound"]);
   });
 });

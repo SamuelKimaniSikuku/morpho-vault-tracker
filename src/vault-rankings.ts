@@ -3,10 +3,11 @@ import { listYearnVaults } from "./yearn";
 import { listBeefyVaults } from "./beefy";
 import { listAaveVaults } from "./aave";
 import { listCompoundVaults } from "./compound";
-import { listDefiVaults } from "./defi";
 import { STALE_AFTER_MS } from "./data";
 import { vaultKey } from "./watchlist";
-import type { VaultSummary } from "./types";
+import type { Protocol, VaultSummary } from "./types";
+
+const RANKED_PROTOCOLS = new Set<Protocol>(["morpho", "yearn", "beefy", "aave", "compound"]);
 
 export type Ranking = "biggest" | "liquidity" | "yield";
 export interface RankingReport { vaults: VaultSummary[]; unavailable: string[]; checkedAt: number }
@@ -24,7 +25,7 @@ export function rankNewsVaults(vaults: VaultSummary[], ranking: Ranking, now: nu
     if (!existing || !Number.isFinite(existing.fetchedAt) || vault.fetchedAt > existing.fetchedAt) unique.set(vaultKey(vault), vault);
   }
   return [...unique.values()].filter(vault => {
-    if (vault.fixedTerm || !hasFreshRankingData(vault, now) || vault.tvlUsd == null || !Number.isFinite(vault.tvlUsd) || vault.tvlUsd < 50_000) return false;
+    if (!RANKED_PROTOCOLS.has(vault.protocol) || vault.fixedTerm || !hasFreshRankingData(vault, now) || vault.tvlUsd == null || !Number.isFinite(vault.tvlUsd) || vault.tvlUsd < 50_000) return false;
     const value = vault[field];
     if (value == null || !Number.isFinite(value) || value < 0) return false;
     return ranking !== "yield" || (vault.rateType === "APY" && value <= 100);
@@ -35,7 +36,7 @@ export async function getVaultRankings(): Promise<RankingReport> {
   const providers: [string, () => Promise<VaultSummary[]>][] = [
     ["Morpho V1", () => listMorphoRankingVaults("v1")], ["Morpho V2", () => listMorphoRankingVaults("v2")],
     ["Yearn", listYearnVaults], ["Beefy", listBeefyVaults], ["Aave", listAaveVaults],
-    ["Compound", listCompoundVaults], ["Other DeFi", listDefiVaults],
+    ["Compound", listCompoundVaults],
   ];
   const results = await Promise.allSettled(providers.map(([, load]) => load()));
   const vaults: VaultSummary[] = [], unavailable: string[] = [], now = Date.now();
