@@ -16,7 +16,7 @@ const height = (b: Box) => Math.max(1, b.y1 - b.y0);
 const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)] ?? 20;
 
 /** Group by screen position, including badges OCR put in a separate text block. */
-function groupRows(words: OcrWord[]) {
+export function groupRows(words: OcrWord[]) {
   const rows: OcrWord[][] = [];
   for (const word of [...words].sort((a, b) => center(a.bbox) - center(b.bbox) || a.bbox.x0 - b.bbox.x0)) {
     const row = rows.at(-1);

@@ -134,6 +134,61 @@
 
 .loan-row > div { min-width: 0; overflow-wrap: anywhere; }
 
+.loan-market-toggle { margin: 24px 0; border-top: 1px solid var(--border); padding-top: 12px; }
+.loans-workspace .loans-panel { border-top: 1px solid var(--border); padding-top: 24px; }
+.loans-workspace .loans-panel h2 { font-size: 1.25rem; }
+.loan-count { margin: 22px 0 12px; }
+.position-columns, .position-row { display: grid; grid-template-columns: minmax(160px, 1.7fr) minmax(155px, 1.5fr) minmax(90px, 1fr) minmax(80px, .8fr) minmax(125px, 1.2fr) 80px; gap: 20px; align-items: center; }
+.position-columns { font-size: .875rem; color: var(--muted); padding: 12px 0; border-bottom: 1px solid var(--border); }
+.position-list { list-style: none; padding: 0; margin: 0; }
+.position-list > li { padding: 18px 0 12px; border-bottom: 1px solid var(--border); }
+.position-row > div { min-width: 0; overflow-wrap: anywhere; }
+.position-identity > strong { font-size: 1.0625rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.position-identity small { display: block; color: var(--muted); font-size: .8125rem; margin-top: 3px; }
+.position-actions { display: flex; align-items: center; gap: 4px; }
+.position-actions .icon-button { width: 32px; padding: 6px; }
+.position-details { margin-top: 10px; color: var(--muted); font-size: .8125rem; }
+.position-details summary, .loan-extra-fields summary { cursor: pointer; padding: 8px 0; width: fit-content; }
+.position-details dl { display: flex; flex-wrap: wrap; gap: 18px 32px; margin: 12px 0; }
+.position-details dd { margin: 4px 0 0; color: var(--text); overflow-wrap: anywhere; }
+.loan-form-help { margin: 8px 0 18px; }
+.loan-draft { margin: 0; padding: 0; border: 0; min-width: 0; }
+.loan-draft + .loan-draft { padding-top: 20px; margin-top: 20px; border-top: 1px solid var(--border); }
+.loan-draft > legend { font-size: .875rem; color: var(--muted); margin: 0 0 12px; }
+.loan-draft:only-of-type > legend { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); }
+.loan-entry-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.loan-entry-grid label { display: flex; flex-direction: column; gap: 7px; color: var(--muted); font-size: .875rem; min-width: 0; }
+.loan-entry-grid input { width: 100%; min-width: 0; min-height: 44px; }
+.loan-amount-fields { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 10px; }
+.loan-extra-fields { margin-top: 12px; }
+.loan-extra-fields summary { color: var(--accent); font-size: .875rem; }
+.loan-extra-fields .loan-entry-grid { margin-top: 10px; }
+.loan-form-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.loan-upload-preview { display: flex; align-items: center; gap: 14px; margin: 4px 0 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.loan-upload-preview img { width: 76px; height: 50px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+.loan-upload-preview > div { min-width: 0; flex: 1; }
+.loan-upload-preview strong { font-size: .875rem; overflow-wrap: anywhere; }
+.loan-full-preview { display: block; width: 100%; height: auto; }
+@media (max-width: 1000px) {
+  .position-columns { display: none; }
+  .position-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  .position-identity { grid-column: 1 / 4; }
+  .position-actions { grid-column: 4; grid-row: 1; justify-self: end; }
+  .position-row > .simple-vault-metric { grid-row: 2; }
+  .position-row .mobile-metric-label { display: block; color: var(--muted); font-size: .8125rem; margin-bottom: 5px; }
+  .loan-entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .loan-entry-grid { grid-template-columns: minmax(0, 1fr); }
+  .position-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .position-identity { grid-column: 1; }
+  .position-actions { grid-column: 2; }
+  .position-row > .simple-vault-metric { grid-row: auto; }
+  .position-row > .simple-vault-metric:nth-of-type(4), .position-row > .simple-vault-metric:nth-of-type(5) { grid-row: 3; }
+  .loan-upload-preview { flex-wrap: wrap; }
+  .loan-upload-preview > .text-button { margin-left: auto; }
+}
+
 .news-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
 .news-tabs .button[aria-pressed="true"] { color: var(--accent); background: var(--accent-bg); border-color: var(--accent); }
 .news-list-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 14px; }

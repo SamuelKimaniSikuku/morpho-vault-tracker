@@ -4,12 +4,20 @@ import type { VaultSummary, WatchedVault } from "./types";
 import type { Reading } from "./monitoring";
 import { vaultKey } from "./watchlist";
 import { Icon, formatRate, age } from "./ui";
+import { LoanPositions } from "./LoanPositions";
 
 export const isLoanMarket = (vault: WatchedVault) => vault.protocol === "morpho" && !!vault.fixedTerm && !vault.fixedTerm.principalToken;
-export function LoansPanel({ watchlist, readings, onAdd, onDetails, now }: {
+type LoansPanelProps = {
   watchlist: WatchedVault[]; readings: Record<string, Reading>;
   onAdd: (vault: VaultSummary) => void; onDetails: (vault: WatchedVault, snapshot?: VaultSummary) => void; now: number;
-}) {
+};
+
+export function LoansPanel(props: LoansPanelProps) {
+  const [showMarkets, setShowMarkets] = useState(false);
+  return <div className="loans-workspace"><LoanPositions now={props.now} /><div className="loan-market-toggle"><button className="text-button" aria-expanded={showMarkets} onClick={() => setShowMarkets(value => !value)}>{showMarkets ? "Hide loan markets" : "Browse loan markets"}</button></div>{showMarkets && <LoanMarketsPanel {...props} />}</div>;
+}
+
+function LoanMarketsPanel({ watchlist, readings, onAdd, onDetails, now }: LoansPanelProps) {
   const [mode, setMode] = useState<"borrow" | "lend">("borrow");
   const [report, setReport] = useState<FixedReport | null>(null);
   const [busy, setBusy] = useState(false), [failed, setFailed] = useState(false);
@@ -46,7 +54,7 @@ export function LoansPanel({ watchlist, readings, onAdd, onDetails, now }: {
     });
   }, [report, savedOnly, watchlist, readings, network, query, mode, now]);
   return <section className="loans-panel" aria-label="Loan markets">
-    <div className="workspace-heading"><div><h1>Loans</h1><p>Fixed-term markets on Morpho.</p></div><div className="segmented" role="group" aria-label="Loan direction"><button className={mode === "borrow" ? "active" : ""} aria-pressed={mode === "borrow"} onClick={() => setMode("borrow")}>Borrow</button><button className={mode === "lend" ? "active" : ""} aria-pressed={mode === "lend"} onClick={() => setMode("lend")}>Lend</button></div></div>
+    <div className="workspace-heading"><div><h2>Loan markets</h2><p>Explore fixed-term markets on Morpho.</p></div><div className="segmented" role="group" aria-label="Loan direction"><button className={mode === "borrow" ? "active" : ""} aria-pressed={mode === "borrow"} onClick={() => setMode("borrow")}>Borrow</button><button className={mode === "lend" ? "active" : ""} aria-pressed={mode === "lend"} onClick={() => setMode("lend")}>Lend</button></div></div>
     <div className="loans-toolbar"><div className="search-field"><Icon name="search" /><input aria-label="Search loans" placeholder="Search a coin, like USDC" value={query} onChange={e => { setQuery(e.target.value); setLimit(8); }} /></div><select aria-label="Loan network" value={network} onChange={e => { setNetwork(e.target.value); setLimit(8); }}><option value="all">All networks</option><option value="1">Ethereum</option><option value="8453">Base</option></select><button className="icon-button" aria-label="Refresh loans" disabled={busy} onClick={() => setRevision(n => n + 1)}><Icon name="refresh" className={busy ? "spinning" : ""} /></button></div>
     <div className="loan-list-tabs" role="group" aria-label="Loan list"><button className="text-button" aria-pressed={!savedOnly} onClick={() => { setSavedOnly(false); setLimit(8); }}>All markets</button><button className="text-button" aria-pressed={savedOnly} onClick={() => { setSavedOnly(true); setLimit(8); }}>Saved ({saved.length})</button><span className="meta">{mode === "borrow" ? "Yearly cost" : "Yearly return"} · APR before fees</span></div>
     {(failed || !!report?.unavailable.length || !!report?.stale.length) && <p className="notice notice-warning" role="status">Some loan data could not refresh. Check the marked readings or try Refresh.</p>}
