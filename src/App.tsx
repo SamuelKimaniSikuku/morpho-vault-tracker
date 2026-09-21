@@ -1,16 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { getTopVault, searchVaultsWithStatus } from "./vaults";
-import type { VaultSummary, WatchedVault, Protocol } from "./types";
+import { searchVaultsWithStatus } from "./vaults";
+import type { VaultSummary, WatchedVault } from "./types";
 import { loadWatchlist, saveWatchlist, vaultKey, getHistory } from "./watchlist";
 import { useMonitor } from "./useMonitor";
 import { loadAlertSettings, validAlerts, DEFAULT_ALERTS, evaluateAlert, dataStatus, type AlertSettings, type Reading } from "./monitoring";
 import { getInitialTheme, applyTheme } from "./theme";
 import { notificationPermission, requestNotificationPermission, fireNotification } from "./notify";
 import { exportWatchlist, parseAndMerge, watchlistFromHash, watchlistToHash } from "./transfer";
-import { getMarketOverview, type NewsWindow } from "./news";
 import { filterVaults, networkLabel, ALL_FILTERS } from "./filters";
-import { sourceName, vaultLink, poolLink } from "./sources";
-import { Dialog, FilterControls, Icon, ProtocolBadge, StatusBadge, VARIABLE_PROTOCOLS as ALL_PROTOCOLS, formatRate, formatMoney, age, rateLabel } from "./ui";
+import { sourceName, vaultLink } from "./sources";
+import { Dialog, FilterControls, Icon, ProtocolBadge, StatusBadge, formatRate, formatMoney, age, rateLabel } from "./ui";
 import { SearchPanel } from "./SearchPanel";
 import { BeginnerGuide, RateGuide } from "./BeginnerGuide";
 import { ScreenshotResults } from "./ScreenshotResults";
@@ -20,6 +19,7 @@ import { FixedVaults, FixedMarketDetails } from "./FixedVaults";
 import { WatchlistTable } from "./WatchlistTable";
 import { compareWatchRates } from "./watchlist-overview";
 import { LoansPanel, isLoanMarket } from "./LoansPanel";
+import { NewsPanel } from "./NewsPanel";
 import "./App.css";
 import "./simple.css";
 
@@ -32,7 +32,7 @@ function initialWatchlist() {
 }
 
 export default function App() {
-  const [view, setView] = useState<"watchlist" | "explore" | "fixed" | "loans">(() => { const v = new URLSearchParams(window.location.search).get("view"); return v === "fixed" || v === "loans" ? v : "watchlist"; });
+  const [view, setView] = useState<"watchlist" | "news" | "fixed" | "loans">(() => { const v = new URLSearchParams(window.location.search).get("view"); return v === "explore" ? "news" : v === "fixed" || v === "loans" || v === "news" ? v : "watchlist"; });
   const [watchlist, setWatchlist] = useState(initialWatchlist);
   const watchRef = useRef(watchlist); watchRef.current = watchlist;
   const [query, setQuery] = useState("");
@@ -53,16 +53,8 @@ export default function App() {
   const [upload, setUpload] = useState<{ name: string; url: string; id: number } | null>(null);
   const [uploadOpen, setUploadOpen] = useState(true);
   const { rows, events, refreshing, refresh } = useMonitor(watchlist, settings);
-  const [topVaults, setTopVaults] = useState<Partial<Record<Protocol, VaultSummary | null>>>({});
-  const [topErrors, setTopErrors] = useState<Protocol[]>([]);
-  const [market, setMarket] = useState<Awaited<ReturnType<typeof getMarketOverview>> | null>(null);
-  const [marketError, setMarketError] = useState(false);
-  const [exploreBusy, setExploreBusy] = useState(false);
-  const [showTrends, setShowTrends] = useState(false);
   const [fixedBusy, setFixedBusy] = useState(false);
   const [fixedRevision, setFixedRevision] = useState(0);
-  const [exploreRevision, setExploreRevision] = useState(0);
-  const [newsWindow, setNewsWindow] = useState<NewsWindow>("1d");
   const [ocrBusy, setOcrBusy] = useState(false);
   const screenshotInput = useRef<HTMLInputElement>(null);
   const [ocrMessage, setOcrMessage] = useState("");
@@ -77,7 +69,7 @@ export default function App() {
   useEffect(() => { if (!notice || removed) return; const timer = setTimeout(() => setNotice(""), 4500); return () => clearTimeout(timer); }, [notice, removed]);
   useEffect(() => {
     const url = new URL(window.location.href);
-    if (view === "fixed" || view === "loans") url.searchParams.set("view", view); else url.searchParams.delete("view");
+    if (view === "fixed" || view === "loans" || view === "news") url.searchParams.set("view", view); else url.searchParams.delete("view");
     window.history.replaceState(null, "", url.pathname + url.search + url.hash);
   }, [view]);
   useEffect(() => { setStorageWarning(!saveWatchlist(watchlist)); }, [watchlist]);
@@ -93,33 +85,6 @@ export default function App() {
     window.addEventListener("focus", updatePermission);
     return () => { clearInterval(tick); window.removeEventListener("online", updateConnection); window.removeEventListener("offline", updateConnection); window.removeEventListener("focus", updatePermission); };
   }, []);
-
-  useEffect(() => {
-    if (view !== "explore" || !showTrends) { setExploreBusy(false); return; }
-    let cancelled = false, running = false;
-    async function updateExplore() {
-      if (running) return;
-      running = true; setExploreBusy(true);
-      const [tops, overview] = await Promise.all([
-        Promise.allSettled(ALL_PROTOCOLS.map(getTopVault)),
-        getMarketOverview(newsWindow).then(value => ({ value, failed: false as const }), () => ({ value: null, failed: true as const })),
-      ]);
-      if (!cancelled) {
-        setTopVaults(previous => Object.fromEntries(ALL_PROTOCOLS.map((p, i) => {
-          const result = tops[i];
-          return [p, result.status === "fulfilled" ? result.value : previous[p] ? { ...previous[p], stale: true } : null];
-        })));
-        setTopErrors(ALL_PROTOCOLS.filter((_, i) => tops[i].status === "rejected"));
-        setMarketError(overview.failed);
-        if (overview.value) setMarket(overview.value);
-        setExploreBusy(false);
-      }
-      running = false;
-    }
-    void updateExplore();
-    const timer = setInterval(() => { void updateExplore(); }, 60_000);
-    return () => { cancelled = true; clearInterval(timer); };
-  }, [view, showTrends, newsWindow, exploreRevision]);
 
   function addVault(v: WatchedVault) {
     const saved: WatchedVault = { protocol: v.protocol, address: v.address, chainId: v.chainId, network: v.network, name: v.name, symbol: v.symbol, assetSymbol: v.assetSymbol, badge: v.badge, morphoVersion: v.morphoVersion, beefyId: v.beefyId, fixedTerm: v.fixedTerm, addedFrom: v.addedFrom, uploadName: v.uploadName };
@@ -205,18 +170,19 @@ export default function App() {
   const selectedRow: Reading | undefined = selected ? rows[selectedKey] ?? (selected.snapshot ? { vault: selected.vault, live: selected.snapshot, checkedAt: selected.snapshot.fetchedAt, error: selected.snapshot.stale } : undefined) : undefined;
   const selectedLink = selected ? vaultLink(selected.vault) : null;
   const watchedKeys = new Set(watchlist.map(vaultKey));
-  const checking = view === "fixed" ? fixedBusy : view === "watchlist" ? refreshing : exploreBusy;
+  const checking = refreshing;
 
   return <div className="app-shell">
     <a className="skip-link" href="#dashboard">Skip to dashboard</a>
     <header className="app-header"><a className="brand" href="/" aria-label="Vault Watch home"><span className="brand-mark"><Icon name="explore" /></span><span>Vault Watch</span></a><div className="header-actions"><button className="button theme-toggle" type="button" aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}><Icon name={theme === "dark" ? "sun" : "moon"} />{theme === "dark" ? "Light mode" : "Dark mode"}</button><button className="text-button" onClick={() => setModal("help")}>Help</button><button className="button" onClick={() => setModal("tools")}><Icon name="settings" />Settings</button></div></header>
-    <nav className="view-nav" aria-label="Main navigation"><button className={view !== "loans" ? "active" : ""} aria-current={view !== "loans" ? "page" : undefined} onClick={() => setView("watchlist")}>Vaults{vaultCount > 0 && <span className="count">{vaultCount}</span>}</button><button className={view === "loans" ? "active" : ""} aria-current={view === "loans" ? "page" : undefined} onClick={() => setView("loans")}>Loans</button><span className="nav-note">Saved on this device · No wallet needed</span></nav>
+    <nav className="view-nav" aria-label="Main navigation"><button className={view === "watchlist" || view === "fixed" ? "active" : ""} aria-current={view === "watchlist" || view === "fixed" ? "page" : undefined} onClick={() => setView("watchlist")}>Vaults{vaultCount > 0 && <span className="count">{vaultCount}</span>}</button><button className={view === "loans" ? "active" : ""} aria-current={view === "loans" ? "page" : undefined} onClick={() => setView("loans")}>Loans</button><button className={view === "news" ? "active" : ""} aria-current={view === "news" ? "page" : undefined} onClick={() => setView("news")}>News</button><span className="nav-note">Saved on this device · No wallet needed</span></nav>
     <main id="dashboard">
       {!online && <p className="notice notice-warning" role="status">You're offline. Displayed values may be out of date. Checks resume when your connection returns.</p>}
       {storageWarning && <p className="notice notice-warning" role="alert">This browser couldn't save your watchlist. Open Settings to save a backup before closing this page.</p>}
       {notice && <div className="notice notice-info compact-toast" role="status"><span>{notice}</span>{removed && <button className="text-button" onClick={() => addVault(removed)}>Undo</button>}<button className="icon-button" aria-label="Dismiss message" onClick={() => { setNotice(""); setRemoved(null); }}><Icon name="close" /></button></div>}
       <input ref={screenshotInput} type="file" accept="image/*" hidden aria-label="Upload screenshot" disabled={ocrBusy} onChange={readScreenshot} />
       {view === "loans" && <LoansPanel watchlist={watchlist} readings={rows} onAdd={addVault} onDetails={openDetails} now={now} />}
+      {view === "news" && <NewsPanel watched={watchedKeys} onAdd={addVault} onDetails={openDetails} now={now} />}
       {view === "fixed" && <><div className="workspace-heading"><div><button className="text-button" onClick={() => setView("watchlist")}>Back to vaults</button><h1>Fixed-term yield</h1></div><button className="button" disabled={fixedBusy} onClick={() => setFixedRevision(n => n + 1)}>Refresh</button></div><FixedVaults yieldOnly watched={watchedKeys} onAdd={addVault} onRemove={removeVault} onDetails={v => openDetails(v, v)} revision={fixedRevision} onBusy={setFixedBusy} now={now} /></>}
       {view === "watchlist" && <section className="vault-workspace" aria-label="Your vaults">
         <div className="workspace-heading"><h1>Your vaults</h1><div className="workspace-actions"><button className="button" onClick={() => addOpen ? setAddOpen(false) : findVaults()} aria-expanded={addOpen}><Icon name="plus" />Add vault</button><button className="button button-primary" disabled={ocrBusy} onClick={() => screenshotInput.current?.click()}><Icon name="import" />{ocrBusy ? "Reading…" : "Upload screenshot"}</button></div></div>
@@ -228,20 +194,11 @@ export default function App() {
           <p className="table-note">Liquidity is the amount the source reports as available to withdraw. — means not reported.<span className="liquidity-history-note">Charts show readings collected on this device while this page is open, up to 24 hours. Dashed lines span gaps in readings.</span></p>
         </> : !addOpen && !upload && <div className="vault-empty"><h2>Keep your vaults in one place.</h2><p>Upload a screenshot or add a vault by name.</p></div>}
       </section>}
-      {view === "explore" && <><button className="text-button" onClick={() => setView("watchlist")}>Back to vaults</button><RateGuide /><details className="simple-disclosure market-trends" open={showTrends} onToggle={event => setShowTrends(event.currentTarget.open)}><summary>Market trends and comparisons</summary><div className="explore-content"><div className="simple-list-toolbar"><p className="meta">More detail for comparing vaults.</p><button className="text-button" disabled={exploreBusy} onClick={() => setExploreRevision(n => n + 1)}>{exploreBusy ? "Updating…" : "Refresh trends"}</button></div>
-        <details className="rate-guide"><summary>How to compare these rates</summary><p>APY includes compounding assumptions; APR does not. When the compounding basis is unconfirmed, we use “Source rate” and keep it separate. We preserve each source's reported rate type and show a base/reward breakdown when available. Different assets and strategies have different exposures. A higher rate is not a recommendation.</p><p>Total deposits (TVL) measure size, not how much can be withdrawn immediately. Rates change and do not include gains or losses in the price of the underlying asset.</p></details>
-        <section><div className="section-heading"><div><h2>Highest reported yield</h2><p>One eligible vault per integration: at least $50,000 in deposits and a reported rate between 0% and 100%.</p></div></div><div className="explore-grid">{ALL_PROTOCOLS.map(p => {
-          const v = topVaults[p];
-          return <article className="explore-card" key={p}><ProtocolBadge protocol={p} />{v ? <><button className="vault-name" onClick={() => openDetails(v, v)}>{v.name}</button><p className="explore-yield">{formatRate(v.netApyPct)}<span>{rateLabel(v.rateType)}</span></p><dl className="card-facts"><div><dt>Network</dt><dd>{networkLabel(v)}</dd></div><div><dt>Deposits</dt><dd>{formatMoney(v.tvlUsd)}</dd></div></dl><p className={v.stale ? "meta warning-text" : "meta"}>{v.stale ? "Stale data · " : "Fetched "}{age(v.fetchedAt, now)}</p><button className="button button-primary" disabled={watchedKeys.has(vaultKey(v))} onClick={() => addVault(v)}><Icon name={watchedKeys.has(vaultKey(v)) ? "check" : "plus"} />{watchedKeys.has(vaultKey(v)) ? "Added" : "Add to watchlist"}</button></> : <p className="empty-card">{v === undefined ? "Checking source…" : topErrors.includes(p) ? "Source unavailable. Try checking again." : "No eligible fresh reading available."}</p>}</article>;
-        })}</div></section>
-        <section><div className="section-heading"><div><h2>Largest pools by deposits</h2><p>Largest tracked yield-paying pools in each integration, using DeFiLlama data. Size does not determine risk or withdrawal liquidity.</p></div></div>{marketError || market?.stale ? <p className="notice notice-warning">Market source unavailable. {market ? `Showing data fetched ${age(market.fetchedAt, now)}.` : "Try checking again."}</p> : market && <p className="meta">DeFiLlama · fetched {age(market.fetchedAt, now)}</p>}{!market && !marketError && <p className="notice">Loading market data…</p>}<div className="explore-grid">{market && ALL_PROTOCOLS.map(p => { const big = market.biggest[p]; return <article className="explore-card compact-card" key={p}><ProtocolBadge protocol={p} />{big ? <><h3>{big.name}</h3><p className="explore-yield">{big.tvlLabel}</p><p>{big.chain} · {formatRate(big.apyPct)} APY</p><a className="source-link" href={poolLink(big.poolId)} target="_blank" rel="noopener noreferrer">View pool <Icon name="arrow" /></a><button className="text-button" onClick={() => findVaults(big.name)}>Find matching vaults</button></> : <p className="meta">No eligible pool data.</p>}</article>; })}</div></section>
-        <section className="market-moves">{market?.window !== newsWindow && <p className="notice">{marketError ? "This time window is unavailable. Try checking again." : "Loading this time window…"}</p>}<div className="section-heading"><div><h2>Yield moves</h2><p>Reported changes for pools with at least $1 million in deposits. “pp” means percentage points.</p></div><div className="segmented" aria-label="Market change window"><button aria-pressed={newsWindow === "1d"} className={newsWindow === "1d" ? "active" : ""} onClick={() => setNewsWindow("1d")}>24h</button><button aria-pressed={newsWindow === "7d"} className={newsWindow === "7d" ? "active" : ""} onClick={() => setNewsWindow("7d")}>7d</button></div></div>{market?.window === newsWindow && <ul className="news-list">{market.news.map(item => <li key={item.id}><span className={`move-direction ${item.direction === "down" ? "warning-text" : "success-text"}`}>{item.direction === "down" ? "↓" : "↑"}</span><div><ProtocolBadge protocol={item.protocol} /><a href={poolLink(item.id)} target="_blank" rel="noopener noreferrer">{item.headline}</a><p className="meta">{item.detail}</p></div></li>)}</ul>}{market?.window === newsWindow && !market.news.length && <p className="empty-inline">No qualifying moves reported for this window.</p>}</section>
-      </div></details></>}
     </main>
     <footer className="app-footer"><p>Track rates without connecting a wallet.<br />Your list is saved on this device. Crypto can lose value.</p><div><a href="/blog/">Learn</a><a href="/privacy.html">Privacy</a><a href="https://chromewebstore.google.com/detail/vault-watch/ihpmmgimhbeakjpodpkdpohmgcejhnbc" target="_blank" rel="noopener noreferrer">Chrome extension <Icon name="arrow" /></a><a href="https://x.com/vaultwatchxyz" target="_blank" rel="noopener noreferrer">@vaultwatchxyz <Icon name="arrow" /></a></div></footer>
 
     <Dialog open={modal === "help"} title="How VaultWatch works" onClose={() => setModal(null)}><BeginnerGuide /></Dialog>
-    <Dialog open={modal === "tools"} title="Settings" onClose={() => setModal(null)}><div className="settings-options"><button className="button" onClick={openAlerts}><Icon name="bell" /><span>Rate alerts<small>Choose which changes to flag</small></span></button><button className="button" onClick={() => setModal("import")}><Icon name="import" /><span>Backups<small>Save or restore your list</small></span></button><button className="button" onClick={() => { setModal(null); setView("explore"); setShowTrends(true); }}>Market trends & comparisons</button><button className="button" onClick={() => { setModal(null); setView("fixed"); }}>Fixed-term yield</button></div></Dialog>
+    <Dialog open={modal === "tools"} title="Settings" onClose={() => setModal(null)}><div className="settings-options"><button className="button" onClick={openAlerts}><Icon name="bell" /><span>Rate alerts<small>Choose which changes to flag</small></span></button><button className="button" onClick={() => setModal("import")}><Icon name="import" /><span>Backups<small>Save or restore your list</small></span></button><button className="button" onClick={() => { setModal(null); setView("news"); }}>Vault news & rankings</button><button className="button" onClick={() => { setModal(null); setView("fixed"); }}>Fixed-term yield</button></div></Dialog>
 
     <Dialog open={modal === "import"} title="Backups" onClose={() => setModal(null)}>
       <p className="dialog-lead">Restore a saved Vault Watch list.</p>

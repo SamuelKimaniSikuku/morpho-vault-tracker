@@ -26,10 +26,27 @@ const loadV2 = cachedLoader(async () => {
     const batch = data.vaultV2s.items;
     if (!Array.isArray(batch)) throw new Error("Morpho returned invalid vaults");
     items.push(...batch);
-    if (batch.length < 300) break;
+    if (batch.length < 300) return items;
   }
-  return items;
+  throw new Error("Morpho vault directory could not be fully loaded");
 });
+const loadRankingV1 = cachedLoader(async () => {
+  const items: any[] = [];
+  for (let page = 0; page < 20; page++) {
+    const data = await gql(`{ vaults(first: 300, skip: ${page * 300}, where: { listed: true, totalAssetsUsd_gte: 50000 }, orderBy: TotalAssetsUsd, orderDirection: Desc) {
+      items { address name symbol asset { symbol } chain { id network } liquidity { usd } state { netApy totalAssetsUsd } }
+    } }`);
+    const batch = data.vaults.items;
+    if (!Array.isArray(batch)) throw new Error("Morpho returned invalid vaults");
+    items.push(...batch);
+    if (batch.length < 300) return items;
+  }
+  throw new Error("Morpho vault directory could not be fully loaded");
+});
+export async function listMorphoRankingVaults(version: "v1" | "v2") {
+  const snapshot = await (version === "v1" ? loadRankingV1() : loadV2());
+  return snapshot.data.map(v => summary(v, version, snapshot.fetchedAt, snapshot.stale));
+}
 export async function searchMorphoV1Vaults(query: string): Promise<VaultSummary[]> {
   const data = await gql(`query($search: String!) { vaults(where: { search: $search }, first: 100) {
       items { address name symbol asset { symbol } chain { id network } liquidity { usd } state { netApy totalAssetsUsd } }

@@ -46,19 +46,12 @@ function toItem(p: LlamaPool, window: NewsWindow): NewsItem {
   // Outside the first-class protocols the badge just says "Other DeFi",
   // so the headline has to carry which project this actually is.
   if (protocol === "defi") name = `${prettyProject(p.project)} ${name}`;
-  // Show the OTHER window's change as context when it's meaningful.
-  const other = window === "7d" ? p.apyPct1D : p.apyPct7D;
-  const otherLabel = window === "7d" ? "in 24h" : "over 7d";
-  const context =
-    other != null && Math.abs(other) >= MIN_MOVE_PP
-      ? ` · ${other > 0 ? "+" : ""}${other.toFixed(1)}pp ${otherLabel}`
-      : "";
   return {
     id: p.pool,
     protocol,
     direction: up ? "up" : "down",
-    headline: `${name} on ${p.chain} ${up ? "jumped" : "fell"} ${Math.abs(move).toFixed(1)}pp ${window === "7d" ? "over 7 days" : "in 24h"} → ${p.apy!.toFixed(2)}% APY`,
-    detail: `${fmtTvl(p.tvlUsd)} TVL${context}`,
+    headline: `${name} on ${p.chain}: yield ${up ? "rose" : "fell"} to ${p.apy!.toFixed(2)}% APY`,
+    detail: `${Math.abs(move).toFixed(1)} percentage points ${up ? "higher" : "lower"} ${window === "7d" ? "over 7 days" : "in 24h"} · ${fmtTvl(p.tvlUsd)} in deposits`,
   };
 }
 
@@ -107,11 +100,11 @@ export async function getVaultNews(window: NewsWindow = "1d", pools = undefined 
   const moveOf = (p: LlamaPool) => (window === "7d" ? p.apyPct7D : p.apyPct1D);
   const eligible = pools.filter(
     (p) =>
-      (p.tvlUsd ?? 0) >= MIN_TVL_USD &&
-      p.apy != null &&
+      Number.isFinite(p.tvlUsd) && (p.tvlUsd ?? 0) >= MIN_TVL_USD &&
+      p.apy != null && Number.isFinite(p.apy) &&
       p.apy >= 0 &&
       p.apy <= MAX_SANE_APY_PCT &&
-      moveOf(p) != null &&
+      moveOf(p) != null && Number.isFinite(moveOf(p)) &&
       Math.abs(moveOf(p)!) >= MIN_MOVE_PP
   );
   return eligible

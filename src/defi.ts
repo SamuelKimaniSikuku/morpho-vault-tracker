@@ -5,5 +5,6 @@ export function prettyProject(slug: string): string {
 }
 const adapter = llamaAdapter("defi", p => !native.has(p.project), p => `${prettyProject(p.project)} ${p.symbol}${p.poolMeta ? ` (${p.poolMeta})` : ""}`, p => prettyProject(p.project));
 export const searchDefiVaults = adapter.search;
+export const listDefiVaults = adapter.list;
 export const fetchDefiLiveState = adapter.live;
 export const getTopDefiVault = adapter.top;

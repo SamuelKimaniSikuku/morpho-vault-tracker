@@ -24,6 +24,10 @@ function summary(v: BeefyVault, snapshot: Snapshot<{ apy: any; tvl: any }>): Vau
     fetchedAt: snapshot.fetchedAt, stale: snapshot.stale, rateType: "APY",
   };
 }
+export async function listBeefyVaults() {
+  const [vaults, metrics] = await Promise.all([loadVaults(), loadMetrics()]);
+  return vaults.data.map(v => summary(v, { ...metrics, stale: metrics.stale || vaults.stale }));
+}
 export async function searchBeefyVaults(query: string) {
   const [vaults, metrics] = await Promise.all([loadVaults(), loadMetrics()]);
   return vaults.data.map(v => ({ v, score: fuzzyMatchScore(v.name, (v.assets ?? []).join(" "), query) })).filter(v => v.score >= 0.6)

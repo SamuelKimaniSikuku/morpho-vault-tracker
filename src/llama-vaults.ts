@@ -14,6 +14,10 @@ export function llamaAdapter(protocol: Protocol, accepts: (p: LlamaPool) => bool
     };
   }
   return {
+    async list() {
+      const snapshot = await loadPoolSnapshot();
+      return snapshot.data.filter(accepts).map(p => summary(p, snapshot));
+    },
     async search(query: string) {
       const snapshot = await loadPoolSnapshot();
       const matches = snapshot.data.filter(accepts).map(p => ({ p, score: fuzzyMatchScore(name(p), p.symbol, query) })).filter(p => p.score >= 0.6);

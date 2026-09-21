@@ -22,6 +22,10 @@ const loadVaults = cachedLoader(async () => {
   if (!Array.isArray(raw)) throw new Error("Yearn returned invalid data");
   return raw.filter(v => v.address && typeof v.chainID === "number");
 });
+export async function listYearnVaults() {
+  const snapshot = await loadVaults();
+  return snapshot.data.map(v => yearnSummary(v, snapshot.fetchedAt, snapshot.stale));
+}
 export async function searchYearnVaults(query: string) {
   const snapshot = await loadVaults();
   return snapshot.data.map(v => yearnSummary(v, snapshot.fetchedAt, snapshot.stale))
