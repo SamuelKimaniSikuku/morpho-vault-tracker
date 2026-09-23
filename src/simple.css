@@ -191,6 +191,10 @@
 }
 
 .news-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+.news-context { width: fit-content; margin-bottom: 24px; }
+.not-reported { color: var(--muted); font-size: .8125rem; }
+.loan-news .news-direction.down { color: var(--success); }
+.loan-news .news-direction.up { color: var(--negative); }
 .news-tabs .button[aria-pressed="true"] { color: var(--accent); background: var(--accent-bg); border-color: var(--accent); }
 .news-list-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 14px; }
 .news-list-heading h2 { font-size: 1.125rem; font-weight: 600; margin-bottom: 5px; }

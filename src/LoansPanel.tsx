@@ -5,6 +5,7 @@ import type { Reading } from "./monitoring";
 import { vaultKey } from "./watchlist";
 import { Icon, formatRate, age } from "./ui";
 import { LoanPositions } from "./LoanPositions";
+import { LoanNewsPanel } from "./LoanNewsPanel";
 
 export const isLoanMarket = (vault: WatchedVault) => vault.protocol === "morpho" && !!vault.fixedTerm && !vault.fixedTerm.principalToken;
 type LoansPanelProps = {
@@ -14,7 +15,18 @@ type LoansPanelProps = {
 
 export function LoansPanel(props: LoansPanelProps) {
   const [showMarkets, setShowMarkets] = useState(false);
-  return <div className="loans-workspace"><LoanPositions now={props.now} /><div className="loan-market-toggle"><button className="text-button" aria-expanded={showMarkets} onClick={() => setShowMarkets(value => !value)}>{showMarkets ? "Hide loan markets" : "Browse loan markets"}</button></div>{showMarkets && <LoanMarketsPanel {...props} />}</div>;
+  const [showNews, setShowNews] = useState(() => new URLSearchParams(window.location.search).get("section") === "news");
+  function selectNews(value: boolean) {
+    setShowNews(value);
+    const url = new URL(window.location.href);
+    if (value) url.searchParams.set("section", "news"); else url.searchParams.delete("section");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  }
+  return <div className="loans-workspace">
+    <div className="segmented news-context" role="group" aria-label="Loan views"><button className={!showNews ? "active" : ""} aria-pressed={!showNews} onClick={() => selectNews(false)}>Your loans</button><button className={showNews ? "active" : ""} aria-pressed={showNews} onClick={() => selectNews(true)}>Loan news</button></div>
+    <div hidden={showNews}><LoanPositions now={props.now} /><div className="loan-market-toggle"><button className="text-button" aria-expanded={showMarkets} onClick={() => setShowMarkets(value => !value)}>{showMarkets ? "Hide loan markets" : "Browse loan markets"}</button></div>{showMarkets && <LoanMarketsPanel {...props} />}</div>
+    {showNews && <LoanNewsPanel now={props.now} />}
+  </div>;
 }
 
 function LoanMarketsPanel({ watchlist, readings, onAdd, onDetails, now }: LoansPanelProps) {

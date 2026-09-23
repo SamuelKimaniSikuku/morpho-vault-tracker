@@ -7,14 +7,21 @@ import { sourceName, vaultLink, poolLink } from "./sources";
 import { vaultKey } from "./watchlist";
 import { Icon, PROTOCOL_LABELS, formatMoney, formatRate, rateLabel, age } from "./ui";
 import type { VaultSummary, WatchedVault } from "./types";
+import { LoanNewsPanel } from "./LoanNewsPanel";
 
 type Mode = "updates" | Ranking;
 const MODES: [Mode, string][] = [["updates", "Latest updates"], ["biggest", "Biggest vaults"], ["liquidity", "Most liquidity"], ["yield", "Highest yield"]];
 
-export function NewsPanel({ watched, onAdd, onDetails, now }: {
+type NewsPanelProps = {
   watched: Set<string>; onAdd: (vault: VaultSummary) => void;
   onDetails: (vault: WatchedVault, snapshot?: VaultSummary) => void; now: number;
-}) {
+};
+export function NewsPanel(props: NewsPanelProps) {
+  const [loans, setLoans] = useState(false);
+  return <><div className="segmented news-context" role="group" aria-label="News category"><button className={!loans ? "active" : ""} aria-pressed={!loans} onClick={() => setLoans(false)}>Vault news</button><button className={loans ? "active" : ""} aria-pressed={loans} onClick={() => setLoans(true)}>Loan news</button></div>{loans ? <LoanNewsPanel now={props.now} /> : <VaultNewsPanel {...props} />}</>;
+}
+
+function VaultNewsPanel({ watched, onAdd, onDetails, now }: NewsPanelProps) {
   const [mode, setMode] = useState<Mode>("updates");
   const [report, setReport] = useState<RankingReport | null>(null);
   const [market, setMarket] = useState<Awaited<ReturnType<typeof getMarketOverview>> | null>(null);
@@ -66,18 +73,19 @@ export function NewsPanel({ watched, onAdd, onDetails, now }: {
       <div className="news-list-heading"><div><h2>{MODES.find(([id]) => id === mode)![1]}</h2><p className="meta">{mode === "biggest" ? "Ranked by total deposits in USD." : mode === "liquidity" ? "Ranked by reported funds available to withdraw in USD." : "Ranked by reported yearly yield (APY)."}</p></div>{report && <span className="meta">Checked {age(report.checkedAt, now)}</span>}</div>
       {(rankFailed || !!report?.unavailable.length) && <p className="notice notice-warning" role="status">{rankFailed ? "Rankings could not refresh." : `No fresh data from ${report!.unavailable.join(", ")}.`} Rankings may be incomplete.</p>}
       {mode === "liquidity" && <p className="news-scope">Available-liquidity data currently covers Morpho. Other sources do not report this amount.</p>}
+      {mode !== "liquidity" && ranked.some(v => v.liquidityUsd == null) && <p className="news-scope">Liquidity means funds available to withdraw. {ranked.some(v => v.protocol === "beefy" && v.liquidityUsd == null) ? "Beefy does not provide this figure in the data we receive. " : "Some sources do not provide this figure. "}“Not reported” does not mean zero; total deposits are shown separately.</p>}
       {!report && rankBusy && <p className="empty-inline" role="status">Loading vault rankings…</p>}
       {ranked.length > 0 && <><div className="news-rank-columns" aria-hidden="true"><span>Vault</span><span>Yearly yield</span><span>Total deposits</span><span>Liquidity</span><span /></div><ol className="news-rank-list">{ranked.slice(0, limit).map((vault, index) => {
         const key = vaultKey(vault), added = watched.has(key), link = vaultLink(vault);
         return <li key={key} className="news-rank-row"><div className="news-rank-identity"><span className="news-rank-number">{index + 1}</span><div><button className="vault-name" onClick={() => onDetails(vault, vault)}>{vault.name}</button><p className="vault-meta">{PROTOCOL_LABELS[vault.protocol]} · {networkLabel(vault)}{vault.morphoVersion ? ` · ${vault.badge}` : ""}</p>{link && <a className="news-source" href={link.url} target="_blank" rel="noopener noreferrer">{sourceName(vault)} <Icon name="arrow" /></a>}</div></div>
           <div className={`simple-vault-metric ${mode === "yield" ? "ranked-metric" : ""}`}><span className="mobile-metric-label">Yearly yield</span><strong>{formatRate(vault.netApyPct)}</strong><small>{rateLabel(vault.rateType)}</small></div>
           <div className={`simple-vault-metric ${mode === "biggest" ? "ranked-metric" : ""}`}><span className="mobile-metric-label">Total deposits</span><strong>{formatMoney(vault.tvlUsd)}</strong></div>
-          <div className={`simple-vault-metric ${mode === "liquidity" ? "ranked-metric" : ""}`}><span className="mobile-metric-label">Liquidity</span><strong>{formatMoney(vault.liquidityUsd)}</strong></div>
+          <div className={`simple-vault-metric ${mode === "liquidity" ? "ranked-metric" : ""}`}><span className="mobile-metric-label">Liquidity</span>{vault.liquidityUsd == null ? <span className="not-reported" title={`${sourceName(vault)} does not report available withdrawal liquidity in the data received. This does not mean zero.`}>Not reported</span> : <strong>{formatMoney(vault.liquidityUsd)}</strong>}</div>
           <button className={added ? "button button-muted" : "button"} disabled={added} onClick={() => onAdd(vault)} aria-label={`${added ? "Added" : "Add"} ${vault.name} on ${networkLabel(vault)} ${vault.badge} ${PROTOCOL_LABELS[vault.protocol]}`}><Icon name={added ? "check" : "plus"} />{added ? "Added" : "Add"}</button>
         </li>;
       })}</ol>{ranked.length > limit && <button className="button" onClick={() => setLimit(n => n + 10)}>Show more vaults</button>}</>}
       {report && !ranked.length && <p className="empty-inline">No fresh qualifying vault data is available for this ranking. Try Refresh news.</p>}
-      <p className="table-note">Covers Morpho, Yearn, Beefy, Aave, and Compound vaults and lending pools with at least $50,000 in deposits. {mode === "yield" ? "Includes APY from 0% to 100%; APR and unconfirmed rate types are excluded. " : ""}— means not reported. Larger deposits or higher yield do not mean lower risk.</p>
+      <p className="table-note">Covers Morpho, Yearn, Beefy, Aave, and Compound vaults and lending pools with at least $50,000 in deposits. {mode === "yield" ? "Includes APY from 0% to 100%; APR and unconfirmed rate types are excluded. " : ""}Larger deposits or higher yield do not mean lower risk.</p>
     </section>}
   </section>;
 }

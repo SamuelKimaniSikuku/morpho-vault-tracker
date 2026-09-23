@@ -70,6 +70,7 @@ export default function App() {
   useEffect(() => {
     const url = new URL(window.location.href);
     if (view === "fixed" || view === "loans" || view === "news") url.searchParams.set("view", view); else url.searchParams.delete("view");
+    if (view !== "loans") url.searchParams.delete("section");
     window.history.replaceState(null, "", url.pathname + url.search + url.hash);
   }, [view]);
   useEffect(() => { setStorageWarning(!saveWatchlist(watchlist)); }, [watchlist]);
