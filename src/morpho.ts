@@ -7,13 +7,20 @@ async function gql(query: string, variables?: Record<string, unknown>) {
   if (json.errors || !json.data) throw new Error("Morpho data is unavailable");
   return json.data;
 }
+function v2LiquidityUsd(v: { liquidityUsd?: unknown; forceDeallocatableLiquidityUsd?: unknown }): number | null {
+  const direct = deposits(v.liquidityUsd);
+  const deallocatable = deposits(v.forceDeallocatableLiquidityUsd);
+  // Match Morpho's total: idle + liquidity adapter + free forced deallocations.
+  // An unknown component must not be presented as zero or as a complete total.
+  return direct === null || deallocatable === null ? null : deposits(direct + deallocatable);
+}
 function summary(v: any, version: "v1" | "v2", fetchedAt: number, stale = false): VaultSummary {
   const metrics = version === "v1" ? v.state : v;
   return {
     protocol: "morpho", address: v.address, chainId: v.chain.id, network: v.chain.network,
     name: v.name.trim(), symbol: v.symbol, assetSymbol: v.asset?.symbol, badge: version.toUpperCase(), morphoVersion: version,
     netApyPct: rate(metrics?.netApy, 100), tvlUsd: deposits(metrics?.totalAssetsUsd),
-    liquidityUsd: deposits(version === "v1" ? v.liquidity?.usd : v.liquidityUsd),
+    liquidityUsd: version === "v1" ? deposits(v.liquidity?.usd) : v2LiquidityUsd(v),
     fetchedAt, stale, rateType: "APY",
   };
 }
@@ -21,7 +28,7 @@ const loadV2 = cachedLoader(async () => {
   const items: any[] = [];
   for (let page = 0; page < 20; page++) {
     const data = await gql(`{ vaultV2s(first: 300, skip: ${page * 300}, where: { listed: true }, orderBy: TotalAssetsUsd, orderDirection: Desc) {
-      items { address name symbol asset { symbol } chain { id network } netApy totalAssetsUsd liquidityUsd }
+      items { address name symbol asset { symbol } chain { id network } netApy totalAssetsUsd liquidityUsd forceDeallocatableLiquidityUsd }
     } }`);
     const batch = data.vaultV2s.items;
     if (!Array.isArray(batch)) throw new Error("Morpho returned invalid vaults");
@@ -62,7 +69,7 @@ export async function getTopMorphoVault() {
   const filter = "where: { totalAssetsUsd_gte: 50000, netApy_lte: 1 }, orderBy: NetApy, orderDirection: Desc, first: 1";
   const [v1, v2] = await Promise.all([
     gql(`{ vaults(${filter}) { items { address name symbol asset { symbol } chain { id network } liquidity { usd } state { netApy totalAssetsUsd } } } }`),
-    gql(`{ vaultV2s(${filter}) { items { address name symbol asset { symbol } chain { id network } netApy totalAssetsUsd liquidityUsd } } }`),
+    gql(`{ vaultV2s(${filter}) { items { address name symbol asset { symbol } chain { id network } netApy totalAssetsUsd liquidityUsd forceDeallocatableLiquidityUsd } } }`),
   ]);
   const at = Date.now();
   const eligible = [...v1.vaults.items.map((v: any) => summary(v, "v1", at)), ...v2.vaultV2s.items.map((v: any) => summary(v, "v2", at))].filter(eligibleRate);
@@ -71,9 +78,9 @@ export async function getTopMorphoVault() {
 export async function fetchMorphoLiveState(vault: WatchedVault) {
   const v2 = vault.morphoVersion === "v2";
   const field = v2 ? "vaultV2ByAddress" : "vaultByAddress";
-  const metrics = v2 ? "netApy totalAssetsUsd liquidityUsd" : "liquidity { usd } state { netApy totalAssetsUsd }";
+  const metrics = v2 ? "netApy totalAssetsUsd liquidityUsd forceDeallocatableLiquidityUsd" : "liquidity { usd } state { netApy totalAssetsUsd }";
   const data = await gql(`query($address: String!, $chainId: Int!) { ${field}(address: $address, chainId: $chainId) { ${metrics} } }`, { address: vault.address, chainId: vault.chainId });
   const value = v2 ? data[field] : data[field]?.state;
   if (!value) return null;
-  return { netApyPct: rate(value.netApy, 100), tvlUsd: deposits(value.totalAssetsUsd), liquidityUsd: deposits(v2 ? value.liquidityUsd : data[field]?.liquidity?.usd), fetchedAt: Date.now(), stale: false, rateType: "APY" as const };
+  return { netApyPct: rate(value.netApy, 100), tvlUsd: deposits(value.totalAssetsUsd), liquidityUsd: v2 ? v2LiquidityUsd(value) : deposits(data[field]?.liquidity?.usd), fetchedAt: Date.now(), stale: false, rateType: "APY" as const };
 }
