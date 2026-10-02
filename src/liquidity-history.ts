@@ -1,11 +1,17 @@
 import { STALE_AFTER_MS } from "./data";
-import type { LiveState } from "./types";
-import { MAX_HISTORY_MS } from "./watchlist";
+import type { LiveState, WatchedVault } from "./types";
+import { MAX_HISTORY_MS, vaultKey } from "./watchlist";
 
 export interface LiquidityPoint { ts: number; usd: number }
 
 const storageKey = (key: string) => `vaultwatch:liquidity-history:${key}`;
 const MAX_POINTS = 2_000;
+
+export function liquidityHistoryKey(vault: Pick<WatchedVault, "protocol" | "chainId" | "address" | "morphoVersion">): string {
+  const key = vaultKey(vault);
+  // Partial V2 readings cannot be compared with totals including free deallocations.
+  return vault.protocol === "morpho" && vault.morphoVersion === "v2" ? `${key}:total-v2` : key;
+}
 
 function validHistory(raw: unknown, now: number): LiquidityPoint[] {
   if (!Array.isArray(raw)) return [];

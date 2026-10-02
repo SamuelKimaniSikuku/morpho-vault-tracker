@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchLiveState } from "./vaults";
 import { appendHistory, getHistory, vaultKey } from "./watchlist";
-import { recordLiquidity } from "./liquidity-history";
+import { liquidityHistoryKey, recordLiquidity } from "./liquidity-history";
 import { recordMetricHistory } from "./metric-history";
 import { mergeReading, dataStatus, evaluateAlert, type Reading, type AlertSettings, type AlertSignal } from "./monitoring";
 import { fireNotification, notificationPermission } from "./notify";
@@ -37,7 +37,7 @@ export function useMonitor(watchlist: WatchedVault[], settings: AlertSettings) {
           if (cancelled) return;
           const at = Date.now();
           const row = mergeReading(vault, rowRef.current[key], live, at);
-          recordLiquidity(key, live, at);
+          recordLiquidity(liquidityHistoryKey(vault), live, at);
           recordMetricHistory(key, live, at);
           rowRef.current = { ...rowRef.current, [key]: row };
           setRows(rowRef.current);

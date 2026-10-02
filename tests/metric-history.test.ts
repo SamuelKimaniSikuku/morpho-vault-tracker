@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { getMetricHistory, recordMetricHistory } from "../src/metric-history";
-import { recordLiquidity } from "../src/liquidity-history";
+import { liquidityHistoryKey, recordLiquidity } from "../src/liquidity-history";
 import { VaultMetricTrend } from "../src/VaultMetricTrend";
 import { WatchlistTable } from "../src/WatchlistTable";
 import { STALE_AFTER_MS } from "../src/data";
@@ -109,11 +109,11 @@ describe("inline metric charts", () => {
   });
 
   it("shows all three charts in the vault row and hides missing or matured rate figures", () => {
+    const vault: WatchedVault = { protocol: "morpho", address: "0x1", chainId: 8453, network: "Base", name: "Example vault", symbol: "USDC", badge: "V2", morphoVersion: "v2" };
     for (const fetchedAt of [NOW - 60_000, NOW]) {
       recordMetricHistory(KEY, live({ fetchedAt }), NOW);
-      recordLiquidity(KEY, live({ fetchedAt }), NOW);
+      recordLiquidity(liquidityHistoryKey(vault), live({ fetchedAt }), NOW);
     }
-    const vault: WatchedVault = { protocol: "morpho", address: "0x1", chainId: 8453, network: "Base", name: "Example vault", symbol: "USDC", badge: "V2", morphoVersion: "v2" };
     const table = (current: LiveState, watched = vault) => renderToStaticMarkup(createElement(WatchlistTable, { vaults: [watched], rows: { [KEY]: { vault: watched, live: current, checkedAt: NOW, error: false } }, signals: {}, now: NOW, onDetails: () => {}, onRemove: () => {} }));
     expect(table(live()).match(/<svg[^>]+role="img"/g)).toHaveLength(3);
     expect(table(live({ netApyPct: null }))).not.toContain("Yearly rate (APY) history");

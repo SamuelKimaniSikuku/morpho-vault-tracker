@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { getLiquidityHistory, recordLiquidity } from "../src/liquidity-history";
+import { getLiquidityHistory, liquidityHistoryKey, recordLiquidity } from "../src/liquidity-history";
 import { LiquidityTrend } from "../src/LiquidityTrend";
 import { STALE_AFTER_MS } from "../src/data";
 import { MAX_HISTORY_MS } from "../src/watchlist";
@@ -21,6 +21,17 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("recorded liquidity", () => {
+  it("starts a separate V2 total history without rewriting old partial readings or other vault histories", () => {
+    const identity = { protocol: "morpho" as const, chainId: 8453, address: "0x1" };
+    recordLiquidity(KEY, live({ liquidityUsd: 75, fetchedAt: NOW - 60_000 }), NOW);
+    const totalKey = liquidityHistoryKey({ ...identity, morphoVersion: "v2" });
+    expect(getLiquidityHistory(totalKey, NOW)).toEqual([]);
+    recordLiquidity(totalKey, live({ liquidityUsd: 375 }), NOW);
+    expect(getLiquidityHistory(totalKey, NOW)).toEqual([{ ts: NOW, usd: 375 }]);
+    expect(getLiquidityHistory(liquidityHistoryKey({ ...identity, morphoVersion: "v1" }), NOW)).toEqual([{ ts: NOW - 60_000, usd: 75 }]);
+    expect(liquidityHistoryKey({ ...identity, protocol: "yearn" })).toBe("yearn:8453:0x1");
+  });
+
   it("keeps real zero liquidity even when rate and deposits are unavailable", () => {
     recordLiquidity(KEY, live({ liquidityUsd: 0 }), NOW);
     expect(getLiquidityHistory(KEY, NOW)).toEqual([{ ts: NOW, usd: 0 }]);
