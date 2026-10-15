@@ -7,21 +7,23 @@ import { loadAlertSettings, validAlerts, DEFAULT_ALERTS, evaluateAlert, dataStat
 import { getInitialTheme, applyTheme } from "./theme";
 import { notificationPermission, requestNotificationPermission, fireNotification } from "./notify";
 import { exportWatchlist, parseAndMerge, watchlistFromHash, watchlistToHash } from "./transfer";
-import { filterVaults, networkLabel, ALL_FILTERS } from "./filters";
-import { sourceName, vaultLink } from "./sources";
-import { Dialog, FilterControls, Icon, ProtocolBadge, StatusBadge, formatRate, formatMoney, age, rateLabel } from "./ui";
+import { filterVaults, ALL_FILTERS } from "./filters";
+import { vaultLink } from "./sources";
+import { Dialog, FilterControls, Icon, age } from "./ui";
 import { SearchPanel } from "./SearchPanel";
-import { BeginnerGuide, RateGuide } from "./BeginnerGuide";
+import { BeginnerGuide } from "./BeginnerGuide";
 import { ScreenshotResults } from "./ScreenshotResults";
 import type { ScreenshotRow } from "./screenshot-matching";
 import { Sparkline } from "./Sparkline";
 import { FixedVaults, FixedMarketDetails } from "./FixedVaults";
 import { WatchlistTable } from "./WatchlistTable";
+import { VaultDetails } from "./VaultDetails";
 import { compareWatchRates } from "./watchlist-overview";
 import { LoansPanel, isLoanMarket } from "./LoansPanel";
 import { NewsPanel } from "./NewsPanel";
 import "./App.css";
 import "./simple.css";
+import "./vault-details.css";
 
 function initialWatchlist() {
   const existing = loadWatchlist();
@@ -216,14 +218,8 @@ export default function App() {
       <section className="recent-alerts"><h3>Recent alerts this session</h3>{events.length ? <ul>{events.map(event => <li key={event.id}><strong>{event.name}</strong><span className="meta">{age(event.at, now)}</span><p>{event.reasons.join(" ")}</p></li>)}</ul> : <p>No threshold crossings recorded yet. History builds while your watched vaults are checked.</p>}</section>
     </Dialog>
 
-    <Dialog open={selected !== null} title={selected?.vault.name ?? "Vault details"} onClose={() => setSelected(null)} wide>
-      {selected && <>{selected.vault.fixedTerm ? <FixedMarketDetails vault={selected.vault} live={selectedRow?.live} now={now} /> : <><div className="detail-meta"><ProtocolBadge protocol={selected.vault.protocol} /><span>{networkLabel(selected.vault)}</span><span>{selected.vault.assetSymbol || selected.vault.symbol}</span><StatusBadge status={dataStatus(selectedRow, now)} /></div><div className="detail-metrics"><div><span>Yearly rate</span><strong>{formatRate(selectedRow?.live?.netApyPct)} <small>{rateLabel(selectedRow?.live?.rateType ?? (selected.vault.protocol === "yearn" ? "Reported" : "APY"))}</small></strong></div><div><span>Total deposits (TVL)</span><strong>{formatMoney(selectedRow?.live?.tvlUsd, false)}</strong></div><div><span>Available liquidity</span><strong>{formatMoney(selectedRow?.live?.liquidityUsd, false)}</strong></div></div>
-      <p className="detail-explanation">This rate can rise or fall. It shows the vault’s rate. Your earnings depend on your deposit and when you invest.</p>
-      {dataStatus(selectedRow, now) === "stale" && <p className="notice notice-warning">This is an older reading. Alerts are paused until an update arrives.</p>}{dataStatus(selectedRow, now) === "unavailable" && <p className="notice notice-warning">Some information is missing. A dash does not mean zero.</p>}
-      <RateGuide />
-      <details className="simple-disclosure technical-details"><summary>Platform data and technical details</summary><dl className="detail-facts"><div><dt>Version / type</dt><dd>{selected.vault.badge || "Not provided"}</dd></div><div><dt>Added from</dt><dd>{selected.vault.addedFrom === "screenshot" ? selected.vault.uploadName || "Screenshot" : "Search"}</dd></div><div><dt>Source</dt><dd>{sourceName(selected.vault)}</dd></div><div><dt>Data received</dt><dd>{age(selectedRow?.live?.fetchedAt, now)}</dd></div><div><dt>Last update attempted</dt><dd>{age(selectedRow?.checkedAt, now)}</dd></div><div><dt>Base APY</dt><dd>{selectedRow?.live?.baseApyPct == null ? "Not provided" : formatRate(selectedRow.live.baseApyPct)}</dd></div><div><dt>Reward APY</dt><dd>{selectedRow?.live?.rewardApyPct == null ? "Not provided" : formatRate(selectedRow.live.rewardApyPct)}</dd></div></dl>
-      <p className="detail-explanation">{selectedRow?.live?.rateType === "Reported" ? "The compounding basis is unconfirmed for this feed. This is the source-reported rate, shown without conversion to APR or APY." : "APY is the annualised rate reported by the source, using that source's compounding assumptions."} Base and reward figures are shown only when supplied. Rates can change, and totals may differ because of rounding or source methodology. Total deposits measure size, not the amount available for immediate withdrawal.</p>
-      <label className="identifier-label">{["aave", "compound", "defi"].includes(selected.vault.protocol) ? "DeFiLlama pool ID" : "Vault contract address"}<input readOnly value={selected.vault.address} onFocus={e => e.target.select()} /></label></details></>}
+    <Dialog open={selected !== null} title={selected?.vault.name ?? "Vault details"} onClose={() => setSelected(null)} wide className={!selected?.vault.fixedTerm ? "vault-details-dialog" : ""}>
+      {selected && <>{selected.vault.fixedTerm ? <FixedMarketDetails vault={selected.vault} live={selectedRow?.live} now={now} /> : <VaultDetails key={selectedKey} vault={selected.vault} row={selectedRow} now={now} />}
       {watchedKeys.has(selectedKey) && <details className="simple-disclosure"><summary>Rate history on this device</summary><Sparkline vaultKey={selectedKey} updatedAt={selectedRow?.live?.fetchedAt ?? null} /><p className="meta">History builds as new rates arrive. It tracks this vault’s rate over time.</p></details>}
       {signals[selectedKey] && <p className="notice notice-warning">{signals[selectedKey]!.reasons.join(" ")}</p>}
       <div className="detail-actions">{selectedLink && <a className="button" href={selectedLink.url} target="_blank" rel="noopener noreferrer">{selectedLink.label}<Icon name="arrow" /></a>}<button className="button button-primary" onClick={() => watchedKeys.has(selectedKey) ? (removeVault(selected.vault), setSelected(null)) : addVault(selected.vault)}>{watchedKeys.has(selectedKey) ? "Remove from list" : "Add to list"}</button></div><p className="table-note">{selected.vault.fixedTerm?.principalToken ? "The rate assumes you hold until the end date. Selling early can change your return." : selected.vault.fixedTerm ? "This rate is before fees and assumes you follow the market terms." : "A higher rate does not mean a safer investment."}</p></>}

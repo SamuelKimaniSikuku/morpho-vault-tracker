@@ -7,7 +7,7 @@ async function gql(query: string, variables?: Record<string, unknown>) {
   if (json.errors || !json.data) throw new Error("Morpho data is unavailable");
   return json.data;
 }
-function v2LiquidityUsd(v: { liquidityUsd?: unknown; forceDeallocatableLiquidityUsd?: unknown }): number | null {
+export function v2LiquidityUsd(v: { liquidityUsd?: unknown; forceDeallocatableLiquidityUsd?: unknown }): number | null {
   const direct = deposits(v.liquidityUsd);
   const deallocatable = deposits(v.forceDeallocatableLiquidityUsd);
   // Match Morpho's total: idle + liquidity adapter + free forced deallocations.

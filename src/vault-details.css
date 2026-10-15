@@ -1,0 +1,47 @@
+.vault-glance { font-size: 1rem; }
+.vault-glance .detail-meta { margin-bottom: 6px; font-size: .9375rem; }
+.glance-curator { color: var(--muted); margin-bottom: 16px; font-size: .9375rem; }
+.glance-metrics { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; padding: 22px; background: var(--surface-soft); border-radius: 12px; margin-top: 18px; }
+.glance-metrics section { min-width: 0; }
+.glance-metrics section > span { display: block; color: var(--muted); font-size: 1rem; }
+.glance-metrics section > strong { display: block; font-size: 2.75rem; line-height: 1.2; font-weight: 600; letter-spacing: -.035em; margin: 9px 0; font-variant-numeric: tabular-nums; }
+.glance-metrics section > .glance-unavailable { font-size: 1.5rem; letter-spacing: -.02em; }
+.glance-metrics p { color: var(--muted); font-size: .9375rem; }
+.glance-facts { display: grid; gap: 23px; padding: 25px 0; }
+.glance-facts h3 { font-size: 1.125rem; line-height: 1.4; margin-bottom: 5px; }
+.glance-facts p { font-size: 1rem; color: var(--muted); line-height: 1.55; }
+.glance-facts .glance-caution { color: var(--warning); font-size: .9375rem; }
+.glance-facts .text-button { margin-top: 6px; }
+.glance-investments { border-top: 1px solid var(--border); }
+.glance-investments > summary { color: var(--accent); font-size: 1rem; padding: 17px 0; }
+.glance-investments > h3 { font-size: 1.0625rem; margin: 24px 0 10px; }
+.glance-investments > h3:first-of-type { margin-top: 6px; }
+.glance-note { color: var(--muted); font-size: .9375rem; line-height: 1.55; }
+.glance-investment-list { margin: 14px 0; padding: 0; list-style: none; }
+.glance-investment-list li { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; padding: 13px 0; border-bottom: 1px solid var(--border); }
+.glance-investment-list li > div { min-width: 0; }
+.glance-investment-list strong, .glance-pending strong { display: block; font-weight: 550; }
+.glance-investment-list span, .glance-pending span { display: block; color: var(--muted); font-size: .875rem; margin-top: 4px; overflow-wrap: anywhere; }
+.glance-allocation-value { text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0; max-width: 42%; }
+.glance-controls { margin: 14px 0; }
+.glance-controls > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: .9375rem; }
+.glance-controls dt { color: var(--muted); }
+.glance-controls dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.glance-pending { padding-left: 20px; }
+.glance-pending li + li { margin-top: 12px; }
+.glance-risks { padding-left: 20px; color: var(--muted); font-size: .9375rem; line-height: 1.55; }
+.glance-risks li + li { margin-top: 8px; }
+.glance-received { color: var(--muted); font-size: .8125rem; line-height: 1.6; margin: 8px 0 14px; }
+.vault-view-details { display: block; margin-top: 7px; padding: 5px 0; min-height: 32px; font-size: .875rem; }
+@media (max-width: 540px) {
+  .dialog.vault-details-dialog { width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; margin: 0; border: 0; border-radius: 0; }
+  .vault-details-dialog .dialog-inner { padding: 20px; }
+  .vault-details-dialog .dialog-heading { position: sticky; top: -20px; z-index: 2; background: var(--surface); padding: 18px 0 14px; margin-top: -18px; border-bottom: 1px solid var(--border); }
+  .vault-details-dialog .dialog-heading h2 { font-size: 1.375rem; }
+  .glance-metrics { padding: 18px 16px; gap: 14px; }
+  .glance-metrics section > span { font-size: .9375rem; min-height: 45px; }
+  .glance-metrics section > strong { font-size: 2.25rem; }
+  .glance-metrics section > .glance-unavailable { font-size: 1.25rem; }
+  .glance-metrics p { font-size: .875rem; }
+  .glance-controls > div { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 12px; }
+}

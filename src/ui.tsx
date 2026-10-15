@@ -44,7 +44,7 @@ export function age(at: number | null | undefined, now = Date.now()) {
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86400)}d ago`;
 }
-export function Dialog({ open, title, onClose, children, wide = false }: { open: boolean; title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+export function Dialog({ open, title, onClose, children, wide = false, className = "" }: { open: boolean; title: string; onClose: () => void; children: ReactNode; wide?: boolean; className?: string }) {
   const ref = useRef<HTMLDialogElement>(null);
   const id = useId();
   useEffect(() => {
@@ -52,7 +52,7 @@ export function Dialog({ open, title, onClose, children, wide = false }: { open:
     if (!open && ref.current?.open) ref.current.close();
   }, [open]);
   // Closing one dialog to open another must not dismiss the new dialog.
-  return <dialog ref={ref} className={`dialog ${wide ? "dialog-wide" : ""}`} aria-labelledby={id} onClose={() => { if (open) onClose(); }} onClick={event => { if (event.target === ref.current) onClose(); }}>
+  return <dialog ref={ref} className={`dialog ${wide ? "dialog-wide" : ""} ${className}`} aria-labelledby={id} onClose={() => { if (open) onClose(); }} onClick={event => { if (event.target === ref.current) onClose(); }}>
     <div className="dialog-inner"><div className="dialog-heading"><h2 id={id}>{title}</h2><button className="icon-button" aria-label="Close dialog" onClick={onClose}><Icon name="close" /></button></div>{children}</div>
   </dialog>;
 }
